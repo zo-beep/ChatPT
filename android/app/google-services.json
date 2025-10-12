@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "116957340443",
+    "project_id": "chatpt-9513d",
+    "storage_bucket": "chatpt-9513d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116957340443:android:e007a03a9a3542276969be",
+        "android_client_info": {
+          "package_name": "com.example.demo_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnADHI-0A79EHYMxNiZwcVdeHMGoIMQG0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
