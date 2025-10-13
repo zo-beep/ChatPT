@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:demo_app/firebase_options.dart';
@@ -6,7 +5,6 @@ import 'package:demo_app/start_screen.dart';
 import 'package:demo_app/login_screen.dart';
 import 'package:demo_app/register_screen.dart';
 import 'package:demo_app/main_screen.dart';
-import 'package:demo_app/otp_verification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Email is required';
     }
     if (!value.contains('@')) {
-      return 'Email must contain @ symbol';
+      return 'Invalid email';
     }
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(value)) {
