@@ -1,29 +1,20 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:demo_app/firebase_options.dart';
 import 'package:demo_app/start_screen.dart';
 import 'package:demo_app/login_screen.dart';
 import 'package:demo_app/register_screen.dart';
 import 'package:demo_app/main_screen.dart';
+import 'package:demo_app/otp_verification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase for web or mobile
-  if (kIsWeb) {
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: "AIzaSyDfuVgXEnxmCZQd3Ys_gtNc7_62ew0URnw",
-        authDomain: "chatpt-9513d.firebaseapp.com",
-        projectId: "chatpt-9513d",
-        storageBucket: "chatpt-9513d.appspot.com",
-        messagingSenderId: "116957340443",
-        appId: "1:116957340443:web:73b1eddef26bf5196969be",
-      ),
-    );
-  } else {
-    await Firebase.initializeApp();
-  }
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(const ChatPTApp());
 }
