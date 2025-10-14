@@ -15,6 +15,8 @@ class _ProgressScreenState extends State<ProgressScreen> with TickerProviderStat
   Map<String, dynamic> _dashboardData = {};
   List<Map<String, dynamic>> _userProgress = [];
   bool _isLoading = true;
+  // Chart height in pixels
+  final double _chartHeight = 220;
   
   // Time range selection
   String _selectedTimeRange = 'Weekly';
@@ -234,6 +236,7 @@ class _ProgressScreenState extends State<ProgressScreen> with TickerProviderStat
                       opacity: _fadeAnimation,
                       child: Container(
                         padding: const EdgeInsets.all(20),
+                      
                         decoration: BoxDecoration(
                           color: widget.themeProvider.cardColor,
                           borderRadius: BorderRadius.circular(16),
@@ -362,7 +365,7 @@ class _ProgressScreenState extends State<ProgressScreen> with TickerProviderStat
                           const SizedBox(height: 20),
                           // Dynamic Bar Chart
                           SizedBox(
-                            height: 140,
+                            height: _chartHeight,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               crossAxisAlignment: CrossAxisAlignment.end,
