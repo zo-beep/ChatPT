@@ -4,6 +4,7 @@ import 'package:demo_app/screens/patient_dashboard_screen.dart';
 import 'package:demo_app/screens/about_screen.dart';
 import 'package:demo_app/screens/terms_conditions_screen.dart';
 import 'package:demo_app/screens/help_support_screen.dart';
+import 'package:demo_app/screens/reminders_screen.dart';
 import 'package:flutter/material.dart';
 
 
@@ -98,10 +99,10 @@ class _MoreScreenState extends State<MoreScreen> {
                       'Reminders',
                       Icons.arrow_forward_ios,
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Feature under development'),
-                            backgroundColor: Colors.orange,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RemindersScreen(themeProvider: themeProvider),
                           ),
                         );
                       },
