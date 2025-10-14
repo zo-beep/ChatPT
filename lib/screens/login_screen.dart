@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
+import 'package:demo_app/services/user_service.dart';
 
 // LOGIN SCREEN
 class LoginScreen extends StatefulWidget {
@@ -72,6 +73,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (credential.user != null) {
+        // Set user email in UserService
+        await UserService.setUserEmail(_emailController.text.trim());
+
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/main');
         }

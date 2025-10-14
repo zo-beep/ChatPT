@@ -38,6 +38,7 @@ dependencies:
   firebase_auth: ^5.7.0
   video_player: ^2.9.2
   fluttertoast: ^9.0.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

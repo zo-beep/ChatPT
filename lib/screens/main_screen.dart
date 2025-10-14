@@ -3,6 +3,8 @@ import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/screens/progress_screen.dart';
 import 'package:demo_app/screens/chatbot_screen.dart';
+import 'package:demo_app/screens/patient_dashboard_screen.dart';
+import 'package:demo_app/services/user_service.dart';
 import 'package:flutter/material.dart';
 
 // MAIN SCREEN WITH BOTTOM NAVIGATION
@@ -204,20 +206,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'J',
-                                      style: TextStyle(
-                                        color: widget.themeProvider.primaryColor,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PatientDashboardScreen(themeProvider: widget.themeProvider),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        _getUserInitial(),
+                                        style: TextStyle(
+                                          color: widget.themeProvider.primaryColor,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -496,5 +508,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     return 'Unknown time';
+  }
+
+  String _getUserInitial() {
+    return UserService.getUserInitial();
   }
 }

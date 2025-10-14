@@ -5,6 +5,7 @@ import 'package:demo_app/screens/start_screen.dart';
 import 'package:demo_app/screens/login_screen.dart';
 import 'package:demo_app/screens/register_screen.dart';
 import 'package:demo_app/screens/main_screen.dart';
+import 'package:demo_app/services/user_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize UserService and load saved data
+  await UserService.loadUserData();
 
   runApp(const ChatPTApp());
 }
