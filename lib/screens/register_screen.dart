@@ -199,6 +199,185 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  void _showTermsDialog(BuildContext context) {
+    final theme = widget.themeProvider;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.description,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Terms & Conditions',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.white,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Last updated: December 2024',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        _buildTermsSection(
+                          'App Usage Agreement',
+                          'By using ChatPT, you agree to use this application solely for its intended purpose of physical therapy management. You must provide accurate information during registration and maintain the confidentiality of your account credentials. Any misuse of the application or violation of these terms may result in account termination.',
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        _buildTermsSection(
+                          'Privacy Policy Summary',
+                          'We collect and store your personal information, health data, and exercise progress to provide personalized physical therapy services. Your data is encrypted and stored securely. We do not share your personal information with third parties without your explicit consent, except as required by law or to provide essential services.',
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        _buildTermsSection(
+                          'Liability Disclaimer',
+                          'ChatPT is designed to assist with physical therapy management and should not replace professional medical advice. Users are responsible for consulting with qualified healthcare professionals before making any health-related decisions. We are not liable for any injuries, damages, or health complications that may arise from the use of this application.',
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        _buildTermsSection(
+                          'Intellectual Property Notice',
+                          'All content, features, and functionality of ChatPT, including but not limited to text, graphics, logos, and software, are owned by ChatPT and are protected by copyright and other intellectual property laws. Users may not reproduce, distribute, or create derivative works without written permission.',
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        _buildTermsSection(
+                          'Contact Information',
+                          'For questions, concerns, or support regarding these Terms & Conditions or the ChatPT application, please contact us at:\n\nEmail: support@chatpt.com\n\nWe will respond to your inquiries within 2-3 business days.',
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: (theme?.primaryColor ?? const Color(0xFF5B8EFF)).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: (theme?.primaryColor ?? const Color(0xFF5B8EFF)).withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'By continuing to use ChatPT, you acknowledge that you have read, understood, and agree to be bound by these Terms & Conditions.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[700],
+                              fontStyle: FontStyle.italic,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Footer
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '© 2024 ChatPT. All rights reserved.',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTermsSection(String title, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          content,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[700],
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.themeProvider;
@@ -515,9 +694,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     Expanded(
-                      child: Text(
-                        'I agree to the Terms and Conditions',
-                        style: TextStyle(fontSize: 14),
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                          children: [
+                            TextSpan(text: 'I agree to the '),
+                            WidgetSpan(
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showTermsDialog(context);
+                                },
+                                child: Text(
+                                  'Terms and Conditions',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

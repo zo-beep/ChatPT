@@ -1,6 +1,9 @@
 import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/main_screen.dart';
 import 'package:demo_app/screens/patient_dashboard_screen.dart';
+import 'package:demo_app/screens/about_screen.dart';
+import 'package:demo_app/screens/terms_conditions_screen.dart';
+import 'package:demo_app/screens/help_support_screen.dart';
 import 'package:flutter/material.dart';
 
 
@@ -105,13 +108,13 @@ class _MoreScreenState extends State<MoreScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildMenuItem(
-                      'Settings',
+                      'About',
                       Icons.arrow_forward_ios,
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Feature under development'),
-                            backgroundColor: Colors.orange,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AboutScreen(themeProvider: themeProvider),
                           ),
                         );
                       },
@@ -121,10 +124,10 @@ class _MoreScreenState extends State<MoreScreen> {
                       'Term & Conditions',
                       Icons.arrow_forward_ios,
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Feature under development'),
-                            backgroundColor: Colors.orange,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TermsConditionsScreen(themeProvider: themeProvider),
                           ),
                         );
                       },
@@ -134,10 +137,10 @@ class _MoreScreenState extends State<MoreScreen> {
                       'Help & Support',
                       Icons.arrow_forward_ios,
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Feature under development'),
-                            backgroundColor: Colors.orange,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => HelpSupportScreen(themeProvider: themeProvider),
                           ),
                         );
                       },
