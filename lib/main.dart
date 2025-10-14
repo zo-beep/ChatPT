@@ -5,6 +5,10 @@ import 'package:demo_app/screens/start_screen.dart';
 import 'package:demo_app/screens/login_screen.dart';
 import 'package:demo_app/screens/register_screen.dart';
 import 'package:demo_app/screens/main_screen.dart';
+import 'package:demo_app/screens/patient_dashboard_screen.dart';
+import 'package:demo_app/screens/doctor_dashboard_screen.dart';
+import 'package:demo_app/screens/doctor_main_screen.dart';
+import 'package:demo_app/screens/admin_dashboard_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 
 void main() async {
@@ -71,6 +75,9 @@ class _ChatPTAppState extends State<ChatPTApp> {
             '/login': (context) => LoginScreen(themeProvider: themeProvider),
             '/register': (context) => RegisterScreen(themeProvider: themeProvider),
             '/main': (context) => MainScreen(themeProvider: themeProvider),
+            '/patient-dashboard': (context) => PatientDashboardScreen(themeProvider: themeProvider),
+            '/doctor-dashboard': (context) => DoctorMainScreen(themeProvider: themeProvider),
+            '/admin-dashboard': (context) => AdminDashboardScreen(themeProvider: themeProvider),
           },
         );
       },

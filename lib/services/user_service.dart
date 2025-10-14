@@ -4,6 +4,7 @@ import 'dart:convert';
 class UserService {
   static String _currentUserName = 'Jane Doe';
   static String? _customAvatar;
+  static String _userRole = 'patient'; // Default role
   static Map<String, dynamic> _userProfile = {
     'name': 'Jane Doe',
     'patientId': '001-2345-678',
@@ -15,6 +16,7 @@ class UserService {
     'medications': 'Glucosamine',
     'assignedDoctor': 'Dr. John Doe',
     'therapyStartDate': 'December 4, 2025',
+    'role': 'patient',
   };
 
   // Initialize SharedPreferences
@@ -29,11 +31,16 @@ class UserService {
     // Load user name
     _currentUserName = prefs.getString('user_name') ?? 'Jane Doe';
     
+    // Load user role
+    _userRole = prefs.getString('user_role') ?? 'patient';
+    
     // Load user profile
     final profileJson = prefs.getString('user_profile');
     if (profileJson != null) {
       try {
         _userProfile = Map<String, dynamic>.from(json.decode(profileJson));
+        // Ensure role is set in profile
+        _userProfile['role'] = _userRole;
       } catch (e) {
         print('Error loading user profile: $e');
         // Keep default profile if loading fails
@@ -50,6 +57,9 @@ class UserService {
     
     // Save user name
     await prefs.setString('user_name', _currentUserName);
+    
+    // Save user role
+    await prefs.setString('user_role', _userRole);
     
     // Save user profile as JSON
     await prefs.setString('user_profile', json.encode(_userProfile));
@@ -130,5 +140,63 @@ class UserService {
   // Check if user has custom avatar
   static bool hasCustomAvatar() {
     return _customAvatar != null && _customAvatar!.isNotEmpty;
+  }
+
+  // Role Management Methods
+  
+  // Get current user role
+  static String getUserRole() {
+    return _userRole;
+  }
+
+  // Set user role
+  static Future<void> setUserRole(String role) async {
+    _userRole = role;
+    _userProfile['role'] = role;
+    await _saveUserData();
+  }
+
+  // Determine user role based on email (simple logic for demo)
+  static String determineUserRole(String email) {
+    // Simple role determination based on email patterns
+    // TEMPORARY: Allow admin access with any email for testing
+    if (email.toLowerCase().contains('admin') || 
+        email.toLowerCase().contains('administrator') ||
+        email.toLowerCase().contains('test') ||
+        email.toLowerCase().contains('dummy')) {
+      return 'admin';
+    } else if (email.toLowerCase().contains('doctor') || email.toLowerCase().contains('dr.')) {
+      return 'doctor';
+    } else {
+      return 'patient';
+    }
+  }
+
+  // Check if user is admin
+  static bool isAdmin() {
+    return _userRole.toLowerCase() == 'admin';
+  }
+
+  // Check if user is doctor
+  static bool isDoctor() {
+    return _userRole.toLowerCase() == 'doctor';
+  }
+
+  // Check if user is patient
+  static bool isPatient() {
+    return _userRole.toLowerCase() == 'patient';
+  }
+
+  // Get role-specific dashboard route
+  static String getDashboardRoute() {
+    switch (_userRole.toLowerCase()) {
+      case 'admin':
+        return '/admin-dashboard';
+      case 'doctor':
+        return '/doctor-dashboard';
+      case 'patient':
+      default:
+        return '/patient-dashboard';
+    }
   }
 }

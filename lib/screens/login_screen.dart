@@ -75,9 +75,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (credential.user != null) {
         // Set user email in UserService
         await UserService.setUserEmail(_emailController.text.trim());
+        
+        // Determine user role based on email
+        final userRole = UserService.determineUserRole(_emailController.text.trim());
+        await UserService.setUserRole(userRole);
 
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/main');
+          // Redirect to appropriate dashboard based on role
+          final dashboardRoute = UserService.getDashboardRoute();
+          Navigator.pushReplacementNamed(context, dashboardRoute);
         }
       }
     } on FirebaseAuthException catch (e) {

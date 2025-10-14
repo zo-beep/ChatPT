@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/more_screen.dart';
 
@@ -22,16 +23,39 @@ class DoctorDashboardScreen extends StatelessWidget {
             leading: IconButton(
               icon: Icon(Icons.arrow_back, color: themeProvider.primaryColor),
               onPressed: () {
-                Navigator.pushReplacement(
+                Navigator.pushNamedAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => MoreScreen(themeProvider: themeProvider)),
+                  '/',
+                  (route) => false,
                 );
               },
             ),
             title: Text(
-              'Back',
+              'Doctor Dashboard',
               style: TextStyle(color: themeProvider.primaryColor),
             ),
+            actions: [
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: themeProvider.primaryColor),
+                onSelected: (value) {
+                  if (value == 'logout') {
+                    _handleLogout(context);
+                  }
+                },
+                itemBuilder: (BuildContext context) => [
+                  const PopupMenuItem<String>(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Logout', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           body: SafeArea(
             child: SingleChildScrollView(
@@ -299,5 +323,27 @@ class DoctorDashboardScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/',
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

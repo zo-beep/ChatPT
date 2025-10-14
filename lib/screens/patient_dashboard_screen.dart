@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/services/user_service.dart';
+import 'package:demo_app/screens/main_screen.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   final ThemeProvider themeProvider;
@@ -72,7 +73,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             color: theme.primaryColor,
           ),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => MainScreen(themeProvider: theme)),
+            );
           },
         ),
         title: Text(
@@ -88,6 +92,26 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               color: theme.primaryColor,
             ),
             onPressed: _isEditing ? _saveChanges : _toggleEdit,
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: theme.primaryColor),
+            onSelected: (value) {
+              if (value == 'logout') {
+                _handleLogout();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Logout', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -375,6 +399,28 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       color: theme.cardColor.withOpacity(0.2),
       height: 1,
     );
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/',
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 

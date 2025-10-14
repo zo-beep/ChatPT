@@ -140,6 +140,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // Set user email in UserService
         await UserService.setUserEmail(_emailController.text.trim());
         
+        // Determine user role based on email
+        final userRole = UserService.determineUserRole(_emailController.text.trim());
+        await UserService.setUserRole(userRole);
+        
         // Store personal information in UserService
         await UserService.updateUserProfile({
           'name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
@@ -147,6 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'gender': _selectedGender,
           'contactNumber': _contactController.text.trim(),
           'email': _emailController.text.trim(),
+          'role': userRole,
         });
         
         // Navigate to OTP verification screen

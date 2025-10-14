@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/login_screen.dart';
+import 'package:demo_app/services/user_service.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final ThemeProvider? themeProvider;
@@ -60,12 +61,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         if (currentUser != null && currentUser.emailVerified) {
           _showSuccessSnackBar('Email verified successfully!');
           if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => LoginScreen(themeProvider: widget.themeProvider),
-              ),
-            );
+            // Redirect to appropriate dashboard based on user role
+            final dashboardRoute = UserService.getDashboardRoute();
+            Navigator.pushReplacementNamed(context, dashboardRoute);
           }
           return;
         }
@@ -152,12 +150,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         if (currentUser != null && currentUser.emailVerified) {
           _showSuccessSnackBar('Email verified successfully!');
           if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => LoginScreen(themeProvider: widget.themeProvider),
-              ),
-            );
+            // Redirect to appropriate dashboard based on user role
+            final dashboardRoute = UserService.getDashboardRoute();
+            Navigator.pushReplacementNamed(context, dashboardRoute);
           }
         } else {
           _showErrorSnackBar('Email not yet verified. Please check your email and click the verification link, then try again.');

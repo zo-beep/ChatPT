@@ -4,6 +4,8 @@ import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/screens/progress_screen.dart';
 import 'package:demo_app/screens/chatbot_screen.dart';
 import 'package:demo_app/screens/patient_dashboard_screen.dart';
+import 'package:demo_app/screens/doctor_dashboard_screen.dart';
+import 'package:demo_app/screens/admin_dashboard_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:flutter/material.dart';
 
@@ -21,7 +23,38 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _checkUserRoleAndRedirect();
+  }
+
+  void _checkUserRoleAndRedirect() {
+    // Redirect users to their appropriate dashboards based on role
+    final userRole = UserService.getUserRole();
+    final dashboardRoute = UserService.getDashboardRoute();
+    
+    // Only redirect if not already on the correct route
+    if (userRole != 'patient') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, dashboardRoute);
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Double-check user role and redirect if needed
+    final userRole = UserService.getUserRole();
+    if (userRole != 'patient') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final dashboardRoute = UserService.getDashboardRoute();
+          Navigator.pushReplacementNamed(context, dashboardRoute);
+        }
+      });
+    }
     return AnimatedBuilder(
       animation: widget.themeProvider,
       builder: (context, child) {
@@ -198,13 +231,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'ChatPT',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'ChatPT',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Role: ${UserService.getUserRole().toUpperCase()}',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 GestureDetector(
                                   onTap: () {
