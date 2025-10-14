@@ -119,64 +119,76 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: theme?.secondaryColor ?? Colors.grey[200],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: _isInitialized && _controller != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Stack(
-                          children: [
-                            AspectRatio(
-                              aspectRatio: _controller!.value.aspectRatio,
-                              child: VideoPlayer(_controller!),
-                            ),
-                            Center(
-                              child: GestureDetector(
-                                onTap: _togglePlayPause,
-                                child: Container(
-                                  width: 70,
-                                  height: 70,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.5),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    _isPlaying ? Icons.pause : Icons.play_arrow,
-                                    size: 40,
-                                    color: Colors.white,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final double width = constraints.maxWidth;
+                  final double height = width > 0 ? (width * 9.0 / 16.0) : 200.0;
+                  return Container(
+                    height: height,
+                    decoration: BoxDecoration(
+                      color: theme?.secondaryColor ?? Colors.grey[200],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: _isInitialized && _controller != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Stack(
+                              children: [
+                                SizedBox.expand(
+                                  child: FittedBox(
+                                    fit: BoxFit.cover,
+                                    child: SizedBox(
+                                      width: width,
+                                      height: height,
+                                      child: VideoPlayer(_controller!),
+                                    ),
                                   ),
                                 ),
+                                Center(
+                                  child: GestureDetector(
+                                    onTap: _togglePlayPause,
+                                    child: Container(
+                                      width: 70,
+                                      height: 70,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.5),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        _isPlaying ? Icons.pause : Icons.play_arrow,
+                                        size: 40,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Center(
+                            child: Container(
+                              width: 70,
+                              height: 70,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.play_arrow,
+                                size: 40,
+                                color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
                               ),
                             ),
-                          ],
-                        ),
-                      )
-                    : Center(
-                        child: Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 10,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.play_arrow,
-                            size: 40,
-                            color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                          ),
-                        ),
-                      ),
+                             ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
               Expanded(
