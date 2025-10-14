@@ -6,7 +6,8 @@ import 'package:demo_app/screens/terms_conditions_screen.dart';
 import 'package:demo_app/screens/help_support_screen.dart';
 import 'package:demo_app/screens/reminders_screen.dart';
 import 'package:flutter/material.dart';
-
+import 'package:demo_app/screens/doctor_dashboard_screen.dart';
+import 'package:demo_app/screens/admin_dashboard_screen.dart';
 
 // MORE SCREEN
 class MoreScreen extends StatefulWidget {
@@ -206,6 +207,65 @@ class _MoreScreenState extends State<MoreScreen> {
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              // Temporary Doctor and Admin Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => DoctorDashboardScreen(themeProvider: widget.themeProvider,)),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeProvider.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Doctor',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => AdminDashboardScreen(themeProvider: widget.themeProvider,)),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeProvider.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Admin',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
