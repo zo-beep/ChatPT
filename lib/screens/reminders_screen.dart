@@ -11,8 +11,9 @@ class RemindersScreen extends StatefulWidget {
 }
 
 class _RemindersScreenState extends State<RemindersScreen> {
-  List<Map<String, dynamic>> _reminders = [];
+  List<Map<String, Object?>> _reminders = [];
   List<bool> _selectedReminders = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -21,75 +22,111 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   void _loadReminders() {
+    final initialReminders = [
+      {
+        'id': 1,
+        'title': 'Morning Exercise Routine',
+        'schedule': 'Daily at 8:00 AM',
+        'time': '8:00 AM',
+        'isCompleted': false,
+        'priority': 'High',
+        'source': 'doctor',
+      },
+      {
+        'id': 2,
+        'title': 'Physical Therapy Session',
+        'schedule': 'Monday, Wednesday, Friday at 2:00 PM',
+        'time': '2:00 PM',
+        'isCompleted': false,
+        'priority': 'High',
+        'source': 'doctor',
+      },
+      {
+        'id': 3,
+        'title': 'Medication Reminder',
+        'schedule': 'Twice daily - 9:00 AM & 6:00 PM',
+        'time': '9:00 AM',
+        'isCompleted': false,
+        'priority': 'Medium',
+        'source': 'doctor',
+      },
+      {
+        'id': 4,
+        'title': 'Doctor Appointment',
+        'schedule': 'Next Friday at 10:30 AM',
+        'time': '10:30 AM',
+        'isCompleted': false,
+        'priority': 'High',
+        'source': 'doctor',
+      },
+      {
+        'id': 5,
+        'title': 'Personal Water Break',
+        'schedule': 'Every hour',
+        'time': 'Every hour',
+        'isCompleted': false,
+        'priority': 'Low',
+        'source': 'user',
+      },
+    ];
+
     setState(() {
-      _reminders = [
-        {
-          'id': 1,
-          'title': 'Morning Exercise Routine',
-          'schedule': 'Daily at 8:00 AM',
-          'time': '8:00 AM',
-          'isCompleted': false,
-          'priority': 'High',
-          'source': 'doctor', // doctor-assigned
-        },
-        {
-          'id': 2,
-          'title': 'Physical Therapy Session',
-          'schedule': 'Monday, Wednesday, Friday at 2:00 PM',
-          'time': '2:00 PM',
-          'isCompleted': false,
-          'priority': 'High',
-          'source': 'doctor',
-        },
-        {
-          'id': 3,
-          'title': 'Medication Reminder',
-          'schedule': 'Twice daily - 9:00 AM & 6:00 PM',
-          'time': '9:00 AM',
-          'isCompleted': false,
-          'priority': 'Medium',
-          'source': 'doctor',
-        },
-        {
-          'id': 4,
-          'title': 'Doctor Appointment',
-          'schedule': 'Next Friday at 10:30 AM',
-          'time': '10:30 AM',
-          'isCompleted': false,
-          'priority': 'High',
-          'source': 'doctor',
-        },
-        {
-          'id': 5,
-          'title': 'Personal Water Break',
-          'schedule': 'Every hour',
-          'time': 'Every hour',
-          'isCompleted': false,
-          'priority': 'Low',
-          'source': 'user', // user-created
-        },
-      ];
-      _selectedReminders = List.filled(_reminders.length, false);
+      _reminders = List<Map<String, Object?>>.from(
+        initialReminders.map((m) => Map<String, Object?>.from(m)),
+      );
+      _selectedReminders = List<bool>.filled(_reminders.length, false);
     });
   }
 
+  void _addCustomReminder(String title, String schedule, String priority) {
+    final newReminder = {
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'title': title,
+      'schedule': schedule,
+      'time': schedule,
+      'isCompleted': false,
+      'priority': priority,
+      'source': 'custom',
+    };
+
+    setState(() {
+      _reminders = List<Map<String, Object?>>.from(_reminders);
+      _selectedReminders = List<bool>.from(_selectedReminders);
+      _reminders.insert(0, Map<String, Object?>.from(newReminder));
+      _selectedReminders.insert(0, false);
+    });
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Custom reminder added successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
   void _toggleReminder(int index) {
-    // Don't allow toggling completed reminders
-    if (_reminders[index]['isCompleted'] == true) {
-      return;
-    }
-    
+    final isCompleted = _reminders[index]['isCompleted'] as bool? ?? false;
+    if (isCompleted) return;
     setState(() {
       _selectedReminders[index] = !_selectedReminders[index];
     });
   }
 
   void _markAsComplete() {
-    final selectedCount = _selectedReminders.where((selected) => selected).length;
-    
+    final selectedCount = _selectedReminders.where((s) => s).length;
     if (selectedCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Please select reminders to mark as complete'),
           backgroundColor: Colors.orange,
         ),
@@ -115,11 +152,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   void _snoozeReminders() {
-    final selectedCount = _selectedReminders.where((selected) => selected).length;
-    
+    final selectedCount = _selectedReminders.where((s) => s).length;
     if (selectedCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Please select reminders to snooze'),
           backgroundColor: Colors.orange,
         ),
@@ -135,22 +171,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
     );
 
     setState(() {
-      _selectedReminders = List.filled(_reminders.length, false);
-    });
-  }
-
-  void _addCustomReminder(String title, String schedule, String priority) {
-    setState(() {
-      _reminders.add({
-        'id': DateTime.now().millisecondsSinceEpoch, // Use timestamp as unique ID
-        'title': title,
-        'schedule': schedule,
-        'time': schedule,
-        'isCompleted': false,
-        'priority': priority,
-        'source': 'user',
-      });
-      _selectedReminders.add(false);
+      _selectedReminders = List<bool>.filled(_reminders.length, false);
     });
   }
 
@@ -161,7 +182,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
@@ -206,15 +227,15 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    items: ['Low', 'Medium', 'High'].map((String priority) {
-                      return DropdownMenuItem<String>(
-                        value: priority,
-                        child: Text(priority),
+                    items: ['Low', 'Medium', 'High'].map((p) {
+                      return DropdownMenuItem(
+                        value: p,
+                        child: Text(p),
                       );
                     }).toList(),
-                    onChanged: (String? newValue) {
+                    onChanged: (v) {
                       setState(() {
-                        selectedPriority = newValue!;
+                        selectedPriority = v!;
                       });
                     },
                   ),
@@ -230,7 +251,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    if (titleController.text.isNotEmpty && 
+                    if (titleController.text.isNotEmpty &&
                         scheduleController.text.isNotEmpty) {
                       _addCustomReminder(
                         titleController.text,
@@ -238,10 +259,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         selectedPriority,
                       );
                       Navigator.of(context).pop();
+                    } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Custom reminder added successfully'),
-                          backgroundColor: Colors.green,
+                        const SnackBar(
+                          content: Text('Please fill all fields'),
+                          backgroundColor: Colors.orange,
                         ),
                       );
                     }
@@ -252,10 +274,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: Text(
-                    'Add',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  child: const Text('Add', style: TextStyle(color: Colors.white)),
                 ),
               ],
             );
@@ -281,17 +300,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = widget.themeProvider;
-    
+
     return Scaffold(
       backgroundColor: theme.backgroundColor,
       appBar: AppBar(
         backgroundColor: theme.cardColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: theme.primaryColor,
-          ),
+          icon: Icon(Icons.arrow_back, color: theme.primaryColor),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -307,7 +323,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -319,100 +334,67 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       color: theme.primaryColor,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(
-                      Icons.notifications_active,
-                      size: 30,
-                      color: Colors.white,
-                    ),
+                    child: const Icon(Icons.notifications_active, color: Colors.white, size: 30),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Your Reminders',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textColor,
-                    ),
+                  Text('Your Reminders',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.textColor),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Stay on track with your physical therapy',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: theme.subtextColor,
-                    ),
+                  Text('Stay on track with your physical therapy',
+                    style: TextStyle(fontSize: 14, color: theme.subtextColor),
                   ),
                 ],
               ),
             ),
-            
-            // Reminders List
+
             Expanded(
               child: _reminders.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.notifications_off,
-                            size: 64,
-                            color: theme.subtextColor,
-                          ),
+                          Icon(Icons.notifications_off, size: 64, color: theme.subtextColor),
                           const SizedBox(height: 16),
-                          Text(
-                            'No reminders assigned yet',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: theme.textColor,
-                            ),
+                          Text('No reminders assigned yet',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: theme.textColor),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            'Your doctor will assign exercises, appointments,\nand medication reminders here',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: theme.subtextColor,
-                            ),
+                          Text('Your doctor will assign exercises, appointments,\nand medication reminders here',
+                            style: TextStyle(fontSize: 14, color: theme.subtextColor),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton.icon(
                             onPressed: _showAddCustomReminderDialog,
-                            icon: Icon(Icons.add, color: Colors.white),
-                            label: Text(
-                              'Create Custom Reminder',
-                              style: TextStyle(color: Colors.white),
-                            ),
+                            icon: const Icon(Icons.add, color: Colors.white),
+                            label: const Text('Create Custom Reminder', style: TextStyle(color: Colors.white)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: theme.primaryColor,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ],
                       ),
                     )
                   : ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: _reminders.length,
                       itemBuilder: (context, index) {
                         final reminder = _reminders[index];
+                        final title = reminder['title'] as String? ?? '';
+                        final schedule = reminder['schedule'] as String? ?? '';
+                        final priority = reminder['priority'] as String? ?? '';
+                        final isCompleted = reminder['isCompleted'] as bool? ?? false;
                         final isSelected = _selectedReminders[index];
-                        final isCompleted = reminder['isCompleted'] as bool;
-                        
+
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: Card(
                             elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () => _toggleReminder(index),
@@ -420,27 +402,17 @@ class _RemindersScreenState extends State<RemindersScreen> {
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
-                                  color: isSelected 
-                                      ? theme.primaryColor.withOpacity(0.1)
-                                      : theme.cardColor,
-                                  border: isSelected 
-                                      ? Border.all(color: theme.primaryColor, width: 2)
-                                      : null,
+                                  color: isSelected ? theme.primaryColor.withOpacity(0.1) : theme.cardColor,
+                                  border: isSelected ? Border.all(color: theme.primaryColor, width: 2) : null,
                                 ),
                                 child: Row(
                                   children: [
-                                    // Checkbox
                                     Checkbox(
                                       value: isSelected,
-                                      onChanged: isCompleted ? null : (value) => _toggleReminder(index),
+                                      onChanged: isCompleted ? null : (v) => _toggleReminder(index),
                                       activeColor: theme.primaryColor,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
                                     ),
                                     const SizedBox(width: 12),
-                                    
-                                    // Reminder Content
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,37 +421,24 @@ class _RemindersScreenState extends State<RemindersScreen> {
                                             children: [
                                               Expanded(
                                                 child: Text(
-                                                  reminder['title'],
+                                                  title,
                                                   style: TextStyle(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.bold,
-                                                    color: isCompleted 
-                                                        ? theme.subtextColor 
-                                                        : theme.textColor,
-                                                    decoration: isCompleted 
-                                                        ? TextDecoration.lineThrough 
-                                                        : null,
+                                                    color: isCompleted ? theme.subtextColor : theme.textColor,
+                                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
                                                   ),
                                                 ),
                                               ),
-                                              // Show priority only if not completed
                                               if (!isCompleted)
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4,
-                                                  ),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                   decoration: BoxDecoration(
-                                                    color: _getPriorityColor(reminder['priority']).withOpacity(0.1),
+                                                    color: _getPriorityColor(priority).withOpacity(0.1),
                                                     borderRadius: BorderRadius.circular(8),
                                                   ),
-                                                  child: Text(
-                                                    reminder['priority'],
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: _getPriorityColor(reminder['priority']),
-                                                    ),
+                                                  child: Text(priority,
+                                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _getPriorityColor(priority)),
                                                   ),
                                                 ),
                                             ],
@@ -487,43 +446,20 @@ class _RemindersScreenState extends State<RemindersScreen> {
                                           const SizedBox(height: 8),
                                           Row(
                                             children: [
-                                              Icon(
-                                                Icons.schedule,
-                                                size: 16,
-                                                color: theme.subtextColor,
-                                              ),
+                                              Icon(Icons.schedule, size: 16, color: theme.subtextColor),
                                               const SizedBox(width: 4),
-                                              Text(
-                                                reminder['schedule'],
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: theme.subtextColor,
-                                                ),
-                                              ),
+                                              Text(schedule, style: TextStyle(fontSize: 14, color: theme.subtextColor)),
                                             ],
                                           ),
                                         ],
                                       ),
                                     ),
-                                    
-                                    // Completion Status
                                     if (isCompleted)
                                       Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          'Marked as Complete',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green,
-                                          ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                                        child: const Text('Marked as Complete',
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
                                         ),
                                       ),
                                   ],
@@ -535,71 +471,46 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       },
                     ),
             ),
-            
-            // Action Buttons
+
+            // --- Bottom Buttons ---
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: theme.cardColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2))],
               ),
               child: Column(
                 children: [
-                  // Add Reminder Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: _showAddCustomReminderDialog,
-                      icon: Icon(Icons.add, color: Colors.white),
-                      label: Text(
-                        'Add Custom Reminder',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text('Add Custom Reminder',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Action Buttons Row
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _markAsComplete,
-                          icon: Icon(Icons.check_circle, color: Colors.white),
-                          label: Text(
-                            'Mark as Complete',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                          icon: const Icon(Icons.check_circle, color: Colors.white),
+                          label: const Text('Mark as Complete',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
@@ -607,21 +518,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _snoozeReminders,
-                          icon: Icon(Icons.snooze, color: Colors.white),
-                          label: Text(
-                            'Snooze',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                          icon: const Icon(Icons.snooze, color: Colors.white),
+                          label: const Text('Snooze',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.primaryColor,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
