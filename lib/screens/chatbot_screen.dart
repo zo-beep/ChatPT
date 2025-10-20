@@ -2,6 +2,7 @@ import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/main_screen.dart';
 import 'package:demo_app/services/ai/chatbot_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 // CHATBOT SCREEN
 class ChatBotScreen extends StatefulWidget {
@@ -15,15 +16,26 @@ class ChatBotScreen extends StatefulWidget {
 class _ChatBotScreenState extends State<ChatBotScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'text': ChatbotService.generateResponse('hello'),
-      'isBot': true,
-      'showButtons': true,
-    },
-  ];
+  final List<Map<String, dynamic>> _messages = [];
 
-  void _sendMessage(String text) {
+  @override
+  void initState() {
+    super.initState();
+    _initializeChat();
+  }
+
+  void _initializeChat() async {
+    final response = await ChatbotService.generateResponse('hello');
+    setState(() {
+      _messages.add({
+        'text': response,
+        'isBot': true,
+        'showButtons': true,
+      });
+    });
+  }
+
+  void _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
     setState(() {
@@ -35,17 +47,41 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
       _messageController.clear();
     });
 
+    // Show typing indicator
+    setState(() {
+      _messages.add({
+        'text': 'Typing...',
+        'isBot': true,
+        'showButtons': false,
+        'isTyping': true,
+      });
+    });
+    _scrollToBottom();
+
     // Generate bot response using ChatbotService
-    Future.delayed(const Duration(milliseconds: 500), () {
+    try {
+      final response = await ChatbotService.generateResponse(text);
       setState(() {
+        // Remove typing indicator
+        _messages.removeLast();
         _messages.add({
-          'text': ChatbotService.generateResponse(text),
+          'text': response,
           'isBot': true,
           'showButtons': false,
         });
       });
-      _scrollToBottom();
-    });
+    } catch (e) {
+      setState(() {
+        // Remove typing indicator
+        _messages.removeLast();
+        _messages.add({
+          'text': 'Sorry, I encountered an error. Please try again.',
+          'isBot': true,
+          'showButtons': false,
+        });
+      });
+    }
+    _scrollToBottom();
 
     _scrollToBottom();
   }
@@ -79,12 +115,8 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
             );
             setState(() {
               _messages.clear();
-              _messages.add({
-                'text': ChatbotService.generateResponse('hello'),
-                'isBot': true,
-                'showButtons': true,
-              });
             });
+            _initializeChat();
           },
         ),
         title: Text(
@@ -136,6 +168,7 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
                     message['text'],
                     message['isBot'],
                     message['showButtons'],
+                    faqButtons: message['faqButtons'],
                   );
                 },
               ),
@@ -195,7 +228,7 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     );
   }
 
-  Widget _buildMessage(String text, bool isBot, bool showButtons) {
+  Widget _buildMessage(String text, bool isBot, bool showButtons, {List<String>? faqButtons}) {
     final theme = widget.themeProvider;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -228,19 +261,36 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
                     color: isBot ? Colors.white : theme.tertiaryColor.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Text(
-                    text,
-                    style: TextStyle(
-                      color: isBot ? Colors.black87 : Colors.white,
-                      fontSize: 15,
-                    ),
-                  ),
+                  child: isBot
+                      ? MarkdownBody(
+                          data: text,
+                          styleSheet: MarkdownStyleSheet(
+                            p: TextStyle(
+                              color: Colors.black87,
+                              fontSize: 15,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          text,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                        ),
                 ),
                 if (showButtons) ...[
                   const SizedBox(height: 12),
-                  _buildQuickButton('Frequently asked questions '),
+                  _buildQuickButton('Frequently asked questions'),
                   const SizedBox(height: 8),
-                  _buildQuickButton('Self-care & Wellness Tips '),
+                  _buildQuickButton('Self-care & Wellness Tips'),
+                ],
+                if (faqButtons != null) ...[
+                  const SizedBox(height: 12),
+                  ...faqButtons.map((faq) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildFaqButton(faq),
+                      )),
                 ],
               ],
             ),
@@ -254,15 +304,46 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
   Widget _buildQuickButton(String text) {
     final theme = widget.themeProvider;
     return GestureDetector(
-      onTap: () {
-        final response = ChatbotService.handleQuickButton(text);
+      onTap: () async {
         setState(() {
           _messages.add({
-            'text': response,
+            'text': 'Typing...',
             'isBot': true,
             'showButtons': false,
+            'isTyping': true,
           });
         });
+        _scrollToBottom();
+
+        try {
+          final result = await ChatbotService.handleQuickButton(text);
+          setState(() {
+            _messages.removeLast();
+            if (result['type'] == 'faq_list') {
+              _messages.add({
+                'text': 'Here are some common questions:',
+                'isBot': true,
+                'showButtons': false,
+                'faqButtons': result['faqs'],
+              });
+            } else if (result['type'] == 'text') {
+              _messages.add({
+                'text': result['text'],
+                'isBot': true,
+                'showButtons': false,
+              });
+            }
+          });
+        } catch (e) {
+          setState(() {
+            _messages.removeLast();
+            _messages.add({
+              'text': 'Sorry, I encountered an error. Please try again.',
+              'isBot': true,
+              'showButtons': false,
+            });
+          });
+        }
         _scrollToBottom();
       },
       child: Container(
@@ -273,6 +354,60 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
         ),
         child: Text(
           text,
+          style: TextStyle(
+            color: theme.primaryColor,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFaqButton(String faq) {
+    final theme = widget.themeProvider;
+    return GestureDetector(
+      onTap: () async {
+        setState(() {
+          _messages.add({
+            'text': 'Typing...',
+            'isBot': true,
+            'showButtons': false,
+            'isTyping': true,
+          });
+        });
+        _scrollToBottom();
+
+        try {
+          final result = await ChatbotService.handleFaqButton(faq);
+          setState(() {
+            _messages.removeLast();
+            _messages.add({
+              'text': result['text'],
+              'isBot': true,
+              'showButtons': false,
+            });
+          });
+        } catch (e) {
+          setState(() {
+            _messages.removeLast();
+            _messages.add({
+              'text': 'Sorry, I encountered an error. Please try again.',
+              'isBot': true,
+              'showButtons': false,
+            });
+          });
+        }
+        _scrollToBottom();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          faq,
           style: TextStyle(
             color: theme.primaryColor,
             fontSize: 13,

@@ -1,6 +1,9 @@
 import 'dart:math';
+import 'package:demo_app/services/gemini_service.dart';
 
 class ChatbotService {
+  static final GeminiService _geminiService = GeminiService();
+  
   static final List<String> _greetings = [
     "Hi! Let's make today a step forward in your recovery. How can I support you?",
     "Hello! I'm here to help with your physical therapy journey. What would you like to know?",
@@ -27,25 +30,37 @@ class ChatbotService {
   ];
 
   static final Map<String, List<String>> _faqResponses = {
-    'pain': [
+    'Pain during exercises': [
       "If you experience pain during exercises, stop immediately and rest. Contact your physical therapist if pain persists.",
       "Some muscle soreness is normal, but sharp or severe pain is not. Always listen to your body.",
     ],
-    'schedule': [
+    'Exercise schedule': [
       "It's recommended to do your exercises daily as prescribed by your physical therapist.",
       "Consistency is more important than intensity. Even 10-15 minutes daily can make a difference.",
     ],
-    'progress': [
+    'Tracking progress': [
       "Progress in physical therapy can be gradual. Track your daily activities and celebrate small wins.",
       "Your progress is tracked in the app. Check the Progress tab to see your improvement over time.",
     ],
-    'equipment': [
+    'Equipment needed': [
       "Most exercises can be done with minimal equipment. A chair and comfortable space are usually sufficient.",
       "If you need specific equipment, your physical therapist will provide guidance on what to use.",
     ],
   };
 
-  static String generateResponse(String userMessage) {
+  static List<String> getFaqTopics() {
+    return _faqResponses.keys.toList();
+  }
+
+  static String getFaqAnswer(String topic) {
+    final responses = _faqResponses[topic];
+    if (responses != null && responses.isNotEmpty) {
+      return responses[Random().nextInt(responses.length)];
+    }
+    return "Sorry, I don't have an answer for that question.";
+  }
+
+  static Future<String> generateResponse(String userMessage) async {
     final message = userMessage.toLowerCase();
     
     // Handle greetings
@@ -53,6 +68,21 @@ class ChatbotService {
       return _greetings[Random().nextInt(_greetings.length)];
     }
     
+    try {
+      // Try to get a response from Gemini first
+      final geminiResponse = await _geminiService.getResponse(message);
+      if (geminiResponse.contains("I can only assist with physical therapy")) {
+        // If Gemini indicates it's not PT-related, fall back to predefined responses
+        return _getFallbackResponse(message);
+      }
+      return geminiResponse;
+    } catch (e) {
+      // If Gemini fails, fall back to predefined responses
+      return _getFallbackResponse(message);
+    }
+  }
+
+  static String _getFallbackResponse(String message) {
     // Handle pain-related messages
     if (message.contains('pain') || message.contains('hurt') || message.contains('ache')) {
       return _painResponses[Random().nextInt(_painResponses.length)];
@@ -73,15 +103,15 @@ class ChatbotService {
     
     // Handle specific questions
     if (message.contains('how often') || message.contains('schedule')) {
-      return _faqResponses['schedule']![Random().nextInt(_faqResponses['schedule']!.length)];
+      return _faqResponses['Exercise schedule']![Random().nextInt(_faqResponses['schedule']!.length)];
     }
     
     if (message.contains('progress') || message.contains('improvement')) {
-      return _faqResponses['progress']![Random().nextInt(_faqResponses['progress']!.length)];
+      return _faqResponses['Tracking progress']![Random().nextInt(_faqResponses['progress']!.length)];
     }
     
     if (message.contains('equipment') || message.contains('tools')) {
-      return _faqResponses['equipment']![Random().nextInt(_faqResponses['equipment']!.length)];
+      return _faqResponses['Equipment needed']![Random().nextInt(_faqResponses['equipment']!.length)];
     }
     
     // Default response
@@ -95,14 +125,32 @@ class ChatbotService {
     ];
   }
 
-  static String handleQuickButton(String buttonText) {
+  static Future<Map<String, dynamic>> handleQuickButton(String buttonText) async {
     switch (buttonText) {
       case 'Frequently asked questions':
-        return "Here are some common questions:\n\n• Pain during exercises\n• Exercise schedule\n• Tracking progress\n• Equipment needed\n\nWhat would you like to know more about?";
+        return {
+          'type': 'faq_list',
+          'faqs': getFaqTopics(),
+        };
       case 'Self-care & Wellness Tips':
-        return "Here are some wellness tips:\n\n• Stay hydrated throughout the day\n• Get 7-9 hours of quality sleep\n• Listen to your body's signals\n• Maintain consistency in your routine\n\nWould you like more specific advice?";
+        return {
+          'type': 'text',
+          'text': "Here are some wellness tips:\n\n• Stay hydrated throughout the day\n• Get 7-9 hours of quality sleep\n• Listen to your body's signals\n• Maintain consistency in your routine\n\nWould you like more specific advice?",
+        };
       default:
-        return generateResponse(buttonText);
+        final text = await generateResponse(buttonText);
+        return {
+          'type': 'text',
+          'text': text,
+        };
     }
+  }
+
+  static Future<Map<String, dynamic>> handleFaqButton(String faqTopic) async {
+    final answer = getFaqAnswer(faqTopic);
+    return {
+      'type': 'text',
+      'text': answer,
+    };
   }
 }
