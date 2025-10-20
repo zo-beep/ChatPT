@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:demo_app/main.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class VideoGuideScreen extends StatefulWidget {
   final String exerciseName;
@@ -65,14 +67,53 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
   }
 
   Future<void> _markAsComplete() async {
-    // Mock completion - just show success message
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Exercise marked as complete!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+    try {
+      // If this is an assigned exercise (has an assignment id), update Firestore
+      final assignmentId = widget.exerciseData?['id'];
+      final user = FirebaseAuth.instance.currentUser;
+      if (assignmentId != null && user != null) {
+        final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('assignedExercises').doc(assignmentId);
+        await FirebaseFirestore.instance.runTransaction((tx) async {
+          final snap = await tx.get(docRef);
+          if (!snap.exists) return;
+          final data = snap.data() ?? {};
+          if ((data['completed'] == true) || (data['completedAt'] != null)) return;
+          tx.update(docRef, {'completed': true, 'completedAt': FieldValue.serverTimestamp()});
+          final histRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('exerciseHistory').doc();
+          tx.set(histRef, {
+            'assignmentId': assignmentId,
+            'exerciseId': data['exerciseId'] ?? null,
+            'exerciseName': data['exerciseName'] ?? '',
+            'sets': data['sets'] ?? 0,
+            'repetitions': data['repetitions'] ?? 0,
+            'duration': data['duration'] ?? 0,
+            'assignedBy': data['assignedBy'] ?? null,
+            'assignedAt': data['assignedAt'] ?? null,
+            'completedAt': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        });
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Exercise marked as complete!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      // Return true to caller so UI can update immediately
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      print('Failed to mark complete: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to mark complete: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

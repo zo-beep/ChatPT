@@ -1,4 +1,6 @@
 import 'package:demo_app/main.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/screens/main_screen.dart';
 import 'package:demo_app/screens/video_guide_screen.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +18,7 @@ class ExerciseScreen extends StatefulWidget {
 class _ExerciseScreenState extends State<ExerciseScreen> {
   List<Map<String, dynamic>> _exercises = [];
   bool _isLoading = true;
+  String? _userId;
 
   @override
   void initState() {
@@ -24,7 +27,31 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
   Future<void> _loadExercises() async {
-    // Load mock exercises directly
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Try to load assigned exercises for logged-in user
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      _userId = user?.uid;
+      if (user != null) {
+        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('assignedExercises').orderBy('date').get();
+        if (snap.docs.isNotEmpty) {
+          _exercises = snap.docs.map((d) {
+            return {'id': d.id, ...d.data()};
+          }).toList();
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      print('Failed to load assigned exercises: $e');
+    }
+
+    // Fallback to mock exercises
     setState(() {
       _exercises = _getMockExercises();
       _isLoading = false;
@@ -171,8 +198,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _buildExerciseCard(
                         context,
-                        exercise['name'] ?? 'Exercise',
-                        'Not yet started',
+                        exercise['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? 'Exercise',
+                        exercise['completed'] == true ? 'Completed' : 'Not yet started',
                         widget.themeProvider.secondaryColor,
                         exercise,
                       ),
@@ -187,8 +214,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   Widget _buildExerciseCard(
       BuildContext context, String title, String status, Color bgColor, Map<String, dynamic> exercise) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => VideoGuideScreen(
@@ -199,6 +226,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             ),
           ),
         );
+        if (result == true) {
+          setState(() {
+            exercise['completed'] = true;
+          });
+        }
       },
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -221,12 +253,23 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: widget.themeProvider.subtextColor,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: widget.themeProvider.subtextColor,
+                          ),
+                        ),
+                      ),
+                      if (exercise.containsKey('sets') || exercise.containsKey('repetitions') || exercise.containsKey('duration'))
+                        Text(
+                          '${exercise['sets'] ?? ''}x${exercise['repetitions'] ?? ''} ${exercise['duration'] != null ? '${exercise['duration']}min' : ''}',
+                          style: TextStyle(fontSize: 12, color: widget.themeProvider.subtextColor),
+                        ),
+                    ],
                   ),
                   if (exercise['duration'] != null) ...[
                     const SizedBox(height: 4),
@@ -241,10 +284,108 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: widget.themeProvider.primaryColor,
-              size: 20,
+            Column(
+              children: [
+                if (exercise.containsKey('completed') && exercise['completed'] != true)
+                  Checkbox(
+                    value: exercise['completed'] == true,
+                    onChanged: (val) async {
+                      // Toggle completion in Firestore if this is an assigned exercise
+                      if (_userId != null && exercise.containsKey('id')) {
+                        final docRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('assignedExercises').doc(exercise['id']);
+                        if (val == true) {
+                          await FirebaseFirestore.instance.runTransaction((tx) async {
+                            final snap = await tx.get(docRef);
+                            if (!snap.exists) return;
+                            final data = snap.data() ?? {};
+                            if ((data['completed'] == true) || (data['completedAt'] != null)) return;
+                            tx.update(docRef, {'completed': true, 'completedAt': FieldValue.serverTimestamp()});
+                            final histRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('exerciseHistory').doc();
+                            tx.set(histRef, {
+                              'assignmentId': exercise['id'],
+                              'exerciseId': data['exerciseId'] ?? null,
+                              'exerciseName': data['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? '',
+                              'sets': data['sets'] ?? exercise['sets'] ?? 0,
+                              'repetitions': data['repetitions'] ?? exercise['repetitions'] ?? 0,
+                              'duration': data['duration'] ?? exercise['duration'] ?? 0,
+                              'assignedBy': data['assignedBy'] ?? null,
+                              'assignedAt': data['assignedAt'] ?? null,
+                              'completedAt': FieldValue.serverTimestamp(),
+                              'createdAt': FieldValue.serverTimestamp(),
+                            });
+                          });
+                          setState(() {
+                            exercise['completed'] = true;
+                          });
+                        } else {
+                          await docRef.update({'completed': false, 'completedAt': FieldValue.delete()});
+                          setState(() {
+                            exercise['completed'] = false;
+                          });
+                        }
+                      } else {
+                        setState(() {
+                          exercise['completed'] = val == true;
+                        });
+                      }
+                    },
+                  ),
+                if (exercise.containsKey('completed') && exercise['completed'] == true)
+                  Column(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green),
+                      const SizedBox(height: 4),
+                      if (exercise['completedAt'] is Timestamp)
+                        Text((exercise['completedAt'] as Timestamp).toDate().toLocal().toString().split(' ')[0], style: TextStyle(color: widget.themeProvider.subtextColor, fontSize: 12)),
+                    ],
+                  ),
+                const SizedBox(height: 8),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: widget.themeProvider.primaryColor,
+                  size: 20,
+                ),
+                const SizedBox(height: 8),
+                if (!(exercise.containsKey('completed') && exercise['completed'] == true))
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (_userId != null && exercise.containsKey('id')) {
+                        final docRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('assignedExercises').doc(exercise['id']);
+                        await FirebaseFirestore.instance.runTransaction((tx) async {
+                          final snap = await tx.get(docRef);
+                          if (!snap.exists) return;
+                          final data = snap.data() ?? {};
+                          if ((data['completed'] == true) || (data['completedAt'] != null)) return;
+                          tx.update(docRef, {'completed': true, 'completedAt': FieldValue.serverTimestamp()});
+                          final histRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('exerciseHistory').doc();
+                          tx.set(histRef, {
+                            'assignmentId': exercise['id'],
+                            'exerciseId': data['exerciseId'] ?? null,
+                            'exerciseName': data['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? '',
+                            'sets': data['sets'] ?? exercise['sets'] ?? 0,
+                            'repetitions': data['repetitions'] ?? exercise['repetitions'] ?? 0,
+                            'duration': data['duration'] ?? exercise['duration'] ?? 0,
+                            'assignedBy': data['assignedBy'] ?? null,
+                            'assignedAt': data['assignedAt'] ?? null,
+                            'completedAt': FieldValue.serverTimestamp(),
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+                        });
+                        setState(() {
+                          exercise['completed'] = true;
+                        });
+                      }
+                      showDialog(
+                        context: context,
+                        builder: (c) => AlertDialog(
+                          content: const Text('Exercise marked as complete!'),
+                          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))],
+                        ),
+                      );
+                    },
+                    child: const Text('Complete'),
+                  ),
+              ],
             ),
           ],
         ),

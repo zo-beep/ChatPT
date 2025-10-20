@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users documents: users/{uid}
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isDoctor(request.auth.token));
+      allow update, delete: if request.auth != null && (request.auth.uid == userId || isDoctor(request.auth.token));
+      allow create: if request.auth != null;
+
+      // Subcollection for assignedExercises
+      match /assignedExercises/{assignmentId} {
+        allow read: if request.auth != null && (request.auth.uid == userId || isDoctor(request.auth.token));
+        allow create: if request.auth != null && isDoctor(request.auth.token);
+        allow update: if request.auth != null && (request.auth.uid == userId || isDoctor(request.auth.token));
+        allow delete: if request.auth != null && isDoctor(request.auth.token);
+      }
+    }
+
+    // Master exercises collection
+    match /exercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && isDoctor(request.auth.token);
+    }
+
+    function isDoctor(token) {
+      return token.role == 'doctor' || token.role == 'admin';
+    }
+  }
+}

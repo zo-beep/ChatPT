@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/services/user_service.dart';
+import 'package:demo_app/screens/manage_patient_exercise_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -318,15 +319,12 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        // TODO: Implement ManagePatientExerciseScreen and import it here.
-                        // Navigator.push(
-                        //   context,
-                        //   MaterialPageRoute(
-                        //     builder: (context) => ManagePatientExerciseScreen(
-                        //       themeProvider: themeProvider,
-                        //     ),
-                        //   ),
-                        // );
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ManagePatientExerciseScreen(themeProvider: themeProvider),
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.folder_open, size: 18),
                       label: const Text('Manage patient exercises'),
