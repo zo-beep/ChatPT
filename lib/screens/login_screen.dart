@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,6 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  String? _emailErrorText;
+  String? _passwordErrorText;
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -45,6 +48,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     return null;
   }
+
+  
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -126,30 +131,68 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = 'No user found with this email address.';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Wrong password provided.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'The email address is not valid.';
-          break;
-        case 'user-disabled':
-          errorMessage = 'This user account has been disabled.';
-          break;
-        case 'too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later.';
-          break;
-        case 'operation-not-allowed':
-          errorMessage = 'Email/password accounts are not enabled.';
-          break;
-        default:
-          errorMessage = 'An error occurred during login. Please try again.';
+      // Normalize code and message to be more forgiving across platforms
+  final code = e.code.toString().toLowerCase();
+  final message = (e.message ?? '').toString().toLowerCase();
+
+      bool handled = false;
+
+      // user-not-found variants
+      if (code.contains('user-not-found') || code.contains('user_not_found') || code.contains('no-such-user') ||
+          message.contains('no user') || message.contains('user not found') || message.contains('no user record')) {
+        setState(() {
+          _emailErrorText = 'No account is registered with this email.';
+        });
+        handled = true;
       }
-      _showErrorSnackBar(errorMessage);
+
+      // wrong-password variants
+      if (!handled && (code.contains('wrong-password') || code.contains('wrong_password') || message.contains('wrong password') || message.contains('invalid password'))) {
+        setState(() {
+          _passwordErrorText = 'Incorrect password.';
+        });
+        handled = true;
+      }
+
+      // invalid-credential (e.g. "the supplied auth credential is incorrect or has expired")
+      if (!handled && (code.contains('invalid-credential') || code.contains('invalid_credential') || message.contains('supplied auth credential is incorrect') || message.contains('has expired') || message.contains('invalid credential'))) {
+        setState(() {
+          _passwordErrorText = 'Incorrect credentials or expired token. Try again or reset your password.';
+        });
+        handled = true;
+      }
+
+      // invalid-email
+      if (!handled && (code.contains('invalid-email') || code.contains('invalid_email') || message.contains('invalid email'))) {
+        setState(() {
+          _emailErrorText = 'The email address is not valid.';
+        });
+        handled = true;
+      }
+
+      // Other known account-level errors
+      if (!handled) {
+        if (code.contains('user-disabled') || message.contains('disabled')) {
+          _showErrorSnackBar('This user account has been disabled.');
+          handled = true;
+        } else if (code.contains('too-many-requests') || message.contains('too many requests')) {
+          _showErrorSnackBar('Too many failed attempts. Please try again later.');
+          handled = true;
+        } else if (code.contains('operation-not-allowed') || message.contains('operation not allowed')) {
+          _showErrorSnackBar('Email/password accounts are not enabled.');
+          handled = true;
+        }
+      }
+
+      if (!handled) {
+        // In debug builds show raw code/message to help tune matching
+        if (kDebugMode) {
+          final raw = 'code=${e.code} message=${e.message ?? 'null'}';
+          _showErrorSnackBar('Auth error: $raw');
+        } else {
+          _showErrorSnackBar('An error occurred during login. Please try again.');
+        }
+      }
     } catch (e) {
       _showErrorSnackBar('An unexpected error occurred. Please try again.');
     } finally {
@@ -306,6 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               hintStyle: TextStyle(color: Colors.grey[400]),
                               filled: true,
                               fillColor: theme?.backgroundColor ?? Colors.grey[50],
+                              errorText: _emailErrorText,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
@@ -343,6 +387,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               hintStyle: TextStyle(color: Colors.grey[400]),
                               filled: true,
                               fillColor: theme?.backgroundColor ?? Colors.grey[50],
+                              errorText: _passwordErrorText,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
@@ -446,5 +491,24 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(() {
+      if (_emailErrorText != null) {
+        setState(() {
+          _emailErrorText = null;
+        });
+      }
+    });
+    _passwordController.addListener(() {
+      if (_passwordErrorText != null) {
+        setState(() {
+          _passwordErrorText = null;
+        });
+      }
+    });
   }
 }
