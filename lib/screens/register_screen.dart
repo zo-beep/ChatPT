@@ -108,8 +108,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showErrorSnackBar('Please enter a password');
       return false;
     }
-    if (_passwordController.text.length < 6) {
-      _showErrorSnackBar('Password must be at least 6 characters');
+    // Enforce stronger password rules locally before attempting registration
+    final password = _passwordController.text.trim();
+    final criteria = _passwordCriteria(password);
+    final failed = criteria.entries.where((e) => !e.value).map((e) => e.key).toList();
+    if (failed.isNotEmpty) {
+      // Build a friendly message listing missing items
+      final friendly = failed.map((s) {
+        switch (s) {
+          case 'minLength':
+            return 'at least 8 characters';
+          case 'uppercase':
+            return 'an uppercase letter';
+          case 'lowercase':
+            return 'a lowercase letter';
+          case 'digit':
+            return 'a number';
+          case 'specialChar':
+            return 'a special character (e.g. !@#\$%)';
+          case 'notCommon':
+            return 'avoid common passwords';
+          default:
+            return s;
+        }
+      }).join(', ');
+      _showErrorSnackBar('Please use a stronger password: include $friendly.');
       return false;
     }
     if (_passwordController.text != _confirmPasswordController.text) {
@@ -121,6 +144,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return false;
     }
     return true;
+  }
+
+  // Return a map of password criteria to whether they pass.
+  Map<String, bool> _passwordCriteria(String password) {
+    final minLength = password.length >= 8;
+    final hasUppercase = RegExp(r'[A-Z]').hasMatch(password);
+    final hasLowercase = RegExp(r'[a-z]').hasMatch(password);
+    final hasDigit = RegExp(r'\d').hasMatch(password);
+    final hasSpecial = RegExp(r'[!@#\$%\^&\*()_+\-=\[\]{};:\"\\|,.<>\/?]').hasMatch(password);
+    final lower = password.toLowerCase();
+    final common = [
+      'password', '123456', '12345678', 'qwerty', 'abc123', 'letmein', 'iloveyou', '111111', 'password1'
+    ];
+    final notCommon = !common.contains(lower);
+
+    return {
+      'minLength': minLength,
+      'uppercase': hasUppercase,
+      'lowercase': hasLowercase,
+      'digit': hasDigit,
+      'specialChar': hasSpecial,
+      'notCommon': notCommon,
+    };
+  }
+
+  // Small widget to show password criteria to the user
+  Widget _buildPasswordCriteriaWidget(ThemeProvider? theme) {
+    final password = _passwordController.text.trim();
+    if (password.isEmpty) return SizedBox.shrink();
+    final criteria = _passwordCriteria(password);
+    Color okColor = Colors.green.shade700;
+    Color badColor = Colors.red.shade700;
+
+    Widget row(String label, bool ok) {
+      return Row(
+        children: [
+          Icon(ok ? Icons.check_circle : Icons.radio_button_unchecked, color: ok ? okColor : badColor, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: ok ? okColor : Colors.grey[800], fontSize: 12),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        row('At least 8 characters', criteria['minLength'] ?? false),
+        const SizedBox(height: 4),
+        row('Contains an uppercase letter', criteria['uppercase'] ?? false),
+        const SizedBox(height: 4),
+        row('Contains a lowercase letter', criteria['lowercase'] ?? false),
+        const SizedBox(height: 4),
+        row('Contains a number', criteria['digit'] ?? false),
+        const SizedBox(height: 4),
+        row('Contains a special character', criteria['specialChar'] ?? false),
+        const SizedBox(height: 4),
+        row('Is not a common password', criteria['notCommon'] ?? false),
+        const SizedBox(height: 8),
+      ],
+    );
   }
 
   Future<void> _register() async {
@@ -233,7 +322,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       String errorMessage;
       switch (e.code) {
         case 'weak-password':
-          errorMessage = 'The password provided is too weak.';
+          errorMessage = 'The password provided is too weak. Use at least 8 characters, include uppercase and lowercase letters, numbers, and special characters.';
           break;
         case 'email-already-in-use':
           errorMessage = 'The account already exists for that email.';
@@ -726,6 +815,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
+                // Password strength hints
+                Builder(builder: (context) {
+                  return AnimatedBuilder(
+                    animation: _passwordController,
+                    builder: (_, __) => _buildPasswordCriteriaWidget(theme),
+                  );
+                }),
                 const SizedBox(height: 16),
                 // Confirm Password
                 TextField(
