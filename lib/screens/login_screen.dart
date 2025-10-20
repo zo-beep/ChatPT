@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/services/user_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:demo_app/screens/doctor_dashboard_screen.dart';
 
 // LOGIN SCREEN
 class LoginScreen extends StatefulWidget {
@@ -76,8 +78,51 @@ class _LoginScreenState extends State<LoginScreen> {
         // Set user email in UserService
         await UserService.setUserEmail(_emailController.text.trim());
 
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/main');
+        // Try to fetch role from Firestore
+        try {
+          final docRef = FirebaseFirestore.instance.collection('users').doc(credential.user!.uid);
+          final doc = await docRef.get();
+
+          // If a Firestore profile exists, merge it into UserService so UI shows real values
+          if (doc.exists) {
+            final data = doc.data() as Map<String, dynamic>;
+            final role = (data['role']?.toString() ?? '').trim();
+            // Normalize role
+            final normalizedRole = role.isEmpty ? 'patient' : role;
+
+            // Update local cache/service with available fields
+            await UserService.updateUserProfile({
+              'name': data['name'] ?? _emailController.text.trim(),
+              'email': data['email'] ?? _emailController.text.trim(),
+              'age': data['age'],
+              'gender': data['gender'],
+              'contactNumber': data['contactNumber'],
+              'role': normalizedRole,
+              'patientId': credential.user!.uid,
+            });
+
+            await UserService.setUserRole(normalizedRole);
+
+            if (mounted) {
+              if (normalizedRole == 'doctor') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => DoctorDashboardScreen(themeProvider: widget.themeProvider!)),
+                );
+              } else {
+                Navigator.pushReplacementNamed(context, '/main');
+              }
+            }
+          } else {
+            // No Firestore doc; ensure role saved and proceed
+            await UserService.setUserRole('patient');
+            if (mounted) Navigator.pushReplacementNamed(context, '/main');
+          }
+        } catch (e) {
+          // Fallback to main screen if Firestore read fails
+          print('Failed to read Firestore user doc at login: $e');
+          await UserService.setUserRole('patient');
+          if (mounted) Navigator.pushReplacementNamed(context, '/main');
         }
       }
     } on FirebaseAuthException catch (e) {

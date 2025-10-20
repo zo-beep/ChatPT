@@ -42,7 +42,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDfuVgXEnxmCZQd3Ys_gtNc7_62ew0URnw',
-    appId: '1:116957340443:web:73b1eddef26bf5196969be',
+    appId: '1:116957340443:web:1997fdd0271f053b6969be',
     messagingSenderId: '116957340443',
     projectId: 'chatpt-9513d',
     authDomain: 'chatpt-9513d.firebaseapp.com',
@@ -83,4 +83,5 @@ class DefaultFirebaseOptions {
     authDomain: 'chatpt-9513d.firebaseapp.com',
     storageBucket: 'chatpt-9513d.firebasestorage.app',
   );
+
 }

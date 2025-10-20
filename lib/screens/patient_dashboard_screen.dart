@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/services/user_service.dart';
 
@@ -336,6 +337,33 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       'therapyStartDate': _controllers['therapyStartDate']?.text ?? '',
     });
     
+    // Also persist these fields to Firestore so admins and other clients can access them
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final profileData = {
+          'name': _controllers['name']?.text ?? '',
+          'patientId': _controllers['patientId']?.text ?? '',
+          'age': int.tryParse(_controllers['age']?.text ?? '') ?? null,
+          'gender': _controllers['gender']?.text ?? '',
+          'contactNumber': _controllers['contactNumber']?.text ?? '',
+          'email': _controllers['email']?.text ?? '',
+          'diagnosis': _controllers['diagnosis']?.text ?? '',
+          'medications': _controllers['medications']?.text ?? '',
+          'assignedDoctor': _controllers['assignedDoctor']?.text ?? '',
+          'therapyStartDate': _controllers['therapyStartDate']?.text ?? '',
+        };
+
+        final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        await docRef.set(profileData, SetOptions(merge: true));
+        print('Saved patient profile to Firestore for ${user.uid}');
+      } else {
+        print('No authenticated user; skipping Firestore save');
+      }
+    } catch (e) {
+      print('Failed to save patient profile to Firestore: $e');
+    }
+
     // Update local profile state
     if (_userProfile != null) {
       _userProfile!['name'] = _controllers['name']?.text ?? '';

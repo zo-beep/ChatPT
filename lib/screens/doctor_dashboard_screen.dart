@@ -1,16 +1,120 @@
 import 'package:flutter/material.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/more_screen.dart';
+import 'package:demo_app/services/user_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 
 // DOCTOR DASHBOARD SCREEN
-class DoctorDashboardScreen extends StatelessWidget {
+class DoctorDashboardScreen extends StatefulWidget {
   final ThemeProvider themeProvider;
 
   const DoctorDashboardScreen({super.key, required this.themeProvider});
 
   @override
+  State<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
+}
+
+class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
+  Map<String, dynamic> _profile = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  void _showEditDialog() {
+    final TextEditingController nameController = TextEditingController(text: _profile['name'] ?? '');
+    final TextEditingController emailController = TextEditingController(text: _profile['email'] ?? '');
+    final TextEditingController contactController = TextEditingController(text: _profile['contactNumber'] ?? '');
+    final TextEditingController specializationController = TextEditingController(text: _profile['specialization'] ?? '');
+    final TextEditingController licenseController = TextEditingController(text: _profile['licenseNumber'] ?? '');
+    final TextEditingController yearsController = TextEditingController(text: _profile['yearsOfExperience']?.toString() ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Information'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+                TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+                TextField(controller: contactController, decoration: const InputDecoration(labelText: 'Contact')),
+                const SizedBox(height: 12),
+                TextField(controller: specializationController, decoration: const InputDecoration(labelText: 'Specialization / Expertise')),
+                TextField(controller: licenseController, decoration: const InputDecoration(labelText: 'License Number')),
+                TextField(controller: yearsController, decoration: const InputDecoration(labelText: 'Years of Experience')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final updated = {
+                  'name': nameController.text.trim(),
+                  'email': emailController.text.trim(),
+                  'contactNumber': contactController.text.trim(),
+                  'specialization': specializationController.text.trim(),
+                  'licenseNumber': licenseController.text.trim(),
+                  'yearsOfExperience': yearsController.text.trim(),
+                };
+
+                // Update local cache
+                await UserService.updateUserProfile(updated);
+
+                // Persist to Firestore
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+                    await docRef.set(updated, SetOptions(merge: true));
+                    print('Saved doctor profile to Firestore for ${user.uid}');
+                  }
+                } catch (e) {
+                  print('Failed to save doctor profile to Firestore: $e');
+                }
+
+                // Reload local profile and close
+                _loadProfile();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _loadProfile() {
+    _profile = {}; // default
+    try {
+      _profile = UserService.getUserProfile();
+    } catch (e) {
+      print('Failed to load user profile: $e');
+    }
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final themeProvider = widget.themeProvider;
+    final displayName = _profile['name'] ?? 'Surname, First Name';
+    final uidDisplay = _profile['patientId'] ?? 'UID: #000002';
+    final role = (_profile['role'] ?? '').toString().trim();
+    final roleLabel = role.isEmpty ? 'Doctor' : (role[0].toUpperCase() + role.substring(1));
+
     return AnimatedBuilder(
       animation: themeProvider,
       builder: (context, child) {
@@ -86,7 +190,7 @@ class DoctorDashboardScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Surname, First Name',
+                                displayName,
                                 style: TextStyle(
                                   fontSize: 19,
                                   fontWeight: FontWeight.w700,
@@ -95,7 +199,7 @@ class DoctorDashboardScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'UID: #000002',
+                                uidDisplay,
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: themeProvider.subtextColor,
@@ -113,9 +217,9 @@ class DoctorDashboardScreen extends StatelessWidget {
                             color: themeProvider.primaryColor,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            'Doctor',
-                            style: TextStyle(
+                          child: Text(
+                            roleLabel,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -140,11 +244,11 @@ class DoctorDashboardScreen extends StatelessWidget {
                   _buildInfoTable(
                     themeProvider,
                     [
-                      ['Name', 'Surname, FirstName LastName'],
-                      ['Age', '45'],
-                      ['Gender', 'Male'],
-                      ['Contact No#', '09423183379'],
-                      ['Email', 'samplemail112@gmail.com'],
+                      ['Name', displayName],
+                      ['Age', (_profile['age'] ?? '').toString().isEmpty ? '—' : _profile['age'].toString()],
+                      ['Gender', _profile['gender'] ?? '—'],
+                      ['Contact No#', _profile['contactNumber'] ?? '—'],
+                      ['Email', _profile['email'] ?? '—'],
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -161,9 +265,9 @@ class DoctorDashboardScreen extends StatelessWidget {
                   _buildInfoTable(
                     themeProvider,
                     [
-                      ['Specialization/\nExpertise', 'Orthopedic Rehabilitation'],
-                      ['License Number', '123456790'],
-                      ['Years of\nExperience', '5 Years'],
+                      ['Specialization/\nExpertise', _profile['specialization'] ?? '—'],
+                      ['License Number', _profile['licenseNumber'] ?? '—'],
+                      ['Years of\nExperience', _profile['yearsOfExperience']?.toString() ?? '—'],
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -172,7 +276,7 @@ class DoctorDashboardScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () {},
+                          onPressed: () => _showEditDialog(),
                           icon: const Icon(Icons.edit, size: 18),
                           label: const Text('Edit Information'),
                           style: OutlinedButton.styleFrom(

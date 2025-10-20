@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/otp_verification_screen.dart';
 import 'package:demo_app/services/user_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterScreen extends StatefulWidget {
   final ThemeProvider? themeProvider;
@@ -22,6 +23,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   String _selectedGender = 'Prefer not to say';
+  // Role will be managed from Firebase Console; default locally to 'patient'
+  String _selectedRole = 'patient';
 
   // Step 2: Account Credentials Controllers
   final TextEditingController _emailController = TextEditingController();
@@ -136,10 +139,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (credential.user != null) {
         // Send email verification
         await credential.user!.sendEmailVerification();
-        
+
         // Set user email in UserService
         await UserService.setUserEmail(_emailController.text.trim());
-        
+
         // Store personal information in UserService
         await UserService.updateUserProfile({
           'name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
@@ -148,7 +151,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'contactNumber': _contactController.text.trim(),
           'email': _emailController.text.trim(),
         });
-        
+        // Save role locally (default 'patient' until admin sets it)
+        await UserService.setUserRole(_selectedRole);
+
+        // Ensure a user document exists in Firestore so admins can add a role via the Console.
+        try {
+          final users = FirebaseFirestore.instance.collection('users');
+          final docRef = users.doc(credential.user!.uid);
+          final existing = await docRef.get();
+          final profileData = <String, dynamic>{
+            'email': _emailController.text.trim(),
+            'name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+            'contactNumber': _contactController.text.trim(),
+            'gender': _selectedGender,
+            'createdAt': FieldValue.serverTimestamp(),
+          };
+
+          // Try to include age as an int if provided
+          final ageText = _ageController.text.trim();
+          final parsedAge = int.tryParse(ageText);
+          if (parsedAge != null) {
+            profileData['age'] = parsedAge;
+          }
+
+          if (!existing.exists) {
+            // Create doc with profile fields. Add empty 'role' so field is visible in Console
+            profileData['role'] = '';
+            await docRef.set(profileData);
+            // Visible log for debugging
+            print('Created Firestore user doc for ${credential.user!.uid} with profile: $profileData');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile saved to Firestore')));
+            }
+          } else {
+            // Update profile fields but do not overwrite 'role' if present.
+            // To avoid overwriting role, use update which merges provided fields only.
+            await docRef.update(profileData);
+            print('Updated Firestore user doc for ${credential.user!.uid} with profile: $profileData');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated in Firestore')));
+            }
+          }
+
+          // Read back the document to confirm where data was written and what fields exist.
+          try {
+            final saved = await docRef.get();
+            print('Firestore doc path: ${docRef.path}');
+            print('Firestore doc data: ${saved.data()}');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved to: ${docRef.path}')));
+            }
+          } catch (e) {
+            print('Failed to read back user doc: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to read back user doc: $e')));
+            }
+          }
+        } catch (e) {
+          // Log Firestore write errors (don't block registration)
+          print('Failed to ensure user doc in Firestore: $e');
+          if (mounted) {
+            _showErrorSnackBar('Failed to save profile to Firestore: $e');
+          }
+        }
+
         // Navigate to OTP verification screen
         if (mounted) {
           Navigator.pushReplacement(
@@ -545,6 +611,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     });
                   },
                 ),
+                const SizedBox(height: 12),
+                // Role is assigned in Firebase Console by an admin. Default is 'patient'.
               ],
             ),
           ),

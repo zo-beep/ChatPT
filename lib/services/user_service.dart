@@ -11,10 +11,15 @@ class UserService {
     'gender': 'Female',
     'contactNumber': '09123456789',
     'email': 'jane.doe@example.com',
-    'diagnosis': 'Knee Pain',
-    'medications': 'Glucosamine',
-    'assignedDoctor': 'Dr. John Doe',
-    'therapyStartDate': 'December 4, 2025',
+    'diagnosis': '',
+    'medications': '',
+    'assignedDoctor': '',
+    'therapyStartDate': '',
+    // Doctor-specific fields (may be empty for patients)
+    'specialization': '',
+    'licenseNumber': '',
+    'yearsOfExperience': '',
+    'role': 'patient', // default role
   };
 
   // Initialize SharedPreferences
@@ -42,6 +47,12 @@ class UserService {
     
     // Load custom avatar
     _customAvatar = prefs.getString('custom_avatar');
+
+    // Load role
+    final savedRole = prefs.getString('user_role');
+    if (savedRole != null && savedRole.isNotEmpty) {
+      _userProfile['role'] = savedRole;
+    }
   }
 
   // Save user data to SharedPreferences
@@ -59,6 +70,16 @@ class UserService {
       await prefs.setString('custom_avatar', _customAvatar!);
     } else {
       await prefs.remove('custom_avatar');
+    }
+
+    // Save role
+    if (_userProfile.containsKey('role')) {
+      final role = _userProfile['role']?.toString() ?? '';
+      if (role.isNotEmpty) {
+        await prefs.setString('user_role', role);
+      } else {
+        await prefs.remove('user_role');
+      }
     }
   }
 
@@ -114,6 +135,20 @@ class UserService {
   // Set user email (for login integration)
   static Future<void> setUserEmail(String email) async {
     _userProfile['email'] = email;
+    await _saveUserData();
+  }
+
+  // Get user role
+  static String getUserRole() {
+    final role = _userProfile['role'];
+    if (role == null) return 'patient';
+    final roleStr = role.toString().trim();
+    return roleStr.isEmpty ? 'patient' : roleStr;
+  }
+
+  // Set user role
+  static Future<void> setUserRole(String role) async {
+    _userProfile['role'] = role;
     await _saveUserData();
   }
 

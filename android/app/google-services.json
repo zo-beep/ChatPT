@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:116957340443:android:4908496df1ef2f2f6969be",
+        "android_client_info": {
+          "package_name": "com.example.chatpt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnADHI-0A79EHYMxNiZwcVdeHMGoIMQG0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:116957340443:android:e007a03a9a3542276969be",
         "android_client_info": {
           "package_name": "com.example.demo_app"
