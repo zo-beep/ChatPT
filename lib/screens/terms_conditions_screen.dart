@@ -66,7 +66,7 @@ class TermsConditionsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Last updated: December 2024',
+                      'Last updated: October 25, 2025',
                       style: TextStyle(
                         fontSize: 14,
                         color: theme.subtextColor,
@@ -159,7 +159,7 @@ class TermsConditionsScreen extends StatelessWidget {
               // Copyright
               Center(
                 child: Text(
-                  '© 2024 ChatPT. All rights reserved.',
+                  '© 2025 ChatPT. All rights reserved.',
                   style: TextStyle(
                     fontSize: 12,
                     color: theme.subtextColor.withOpacity(0.7),

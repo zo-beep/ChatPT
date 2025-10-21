@@ -67,35 +67,208 @@ class _ManagePatientExerciseScreenState extends State<ManagePatientExerciseScree
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search users by name, email or id',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => setState(() {}),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                onChanged: (_) => setState(() {}),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Patient Directory',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Manage exercises and track patient progress',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.subtextColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.backgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: theme.primaryColor.withOpacity(0.1),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(color: theme.textColor),
+                      decoration: InputDecoration(
+                        hintText: 'Search patients...',
+                        hintStyle: TextStyle(color: theme.subtextColor),
+                        prefixIcon: Icon(Icons.search, color: theme.primaryColor),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(Icons.clear, color: theme.subtextColor),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
               child: _loadingUsers
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      itemCount: _filteredUsers.length,
-                      itemBuilder: (context, i) {
-                        final u = _filteredUsers[i];
-                        return ListTile(
-                          title: Text(u['name'] ?? u['email'] ?? 'Unknown'),
-                          subtitle: Text(u['email'] ?? ''),
-                          trailing: Text(u['patientId'] ?? u['id'] ?? ''),
-                          onTap: () => _openUserManage(u),
-                        );
-                      },
-                    ),
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.primaryColor,
+                        ),
+                      ),
+                    )
+                  : _filteredUsers.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 64,
+                                color: theme.subtextColor,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No patients found',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Try adjusting your search',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: theme.subtextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _filteredUsers.length,
+                          padding: const EdgeInsets.all(16),
+                          itemBuilder: (context, i) {
+                            final u = _filteredUsers[i];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: theme.cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.primaryColor.withOpacity(0.1),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.primaryColor.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => _openUserManage(u),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 48,
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            color: theme.primaryColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              (u['name'] ?? u['email'] ?? 'U')[0].toUpperCase(),
+                                              style: TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: theme.primaryColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                u['name'] ?? u['email'] ?? 'Unknown',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: theme.textColor,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                u['email'] ?? '',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: theme.subtextColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: theme.primaryColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(
+                                            Icons.arrow_forward_ios,
+                                            size: 14,
+                                            color: theme.primaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
             ),
           ],
         ),
@@ -190,13 +363,13 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
           final histRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('exerciseHistory').doc();
           tx.set(histRef, {
             'assignmentId': docId,
-            'exerciseId': data['exerciseId'] ?? null,
+            'exerciseId': data['exerciseId'],
             'exerciseName': data['exerciseName'] ?? '',
             'sets': data['sets'] ?? 0,
             'repetitions': data['repetitions'] ?? 0,
             'duration': data['duration'] ?? 0,
-            'assignedBy': data['assignedBy'] ?? null,
-            'assignedAt': data['assignedAt'] ?? null,
+            'assignedBy': data['assignedBy'],
+            'assignedAt': data['assignedAt'],
             'completedAt': FieldValue.serverTimestamp(),
             'createdAt': FieldValue.serverTimestamp(),
           });
@@ -216,60 +389,374 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
     final repsC = TextEditingController(text: (assignment['repetitions'] ?? '').toString());
     final durationC = TextEditingController(text: (assignment['duration'] ?? '').toString());
     DateTime? scheduledDate = assignment['date'] is Timestamp ? (assignment['date'] as Timestamp).toDate() : null;
+    bool isLoading = false;
 
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      builder: (context) => StatefulBuilder(builder: (context, setState) {
-        return AlertDialog(
-          title: const Text('Edit Assignment'),
-          content: SingleChildScrollView(
-            child: Column(children: [
-              Text('Exercise: ${assignment['exerciseName'] ?? ''}'),
-              TextField(controller: setsC, decoration: const InputDecoration(labelText: 'Sets')),
-              TextField(controller: repsC, decoration: const InputDecoration(labelText: 'Repetitions')),
-              TextField(controller: durationC, decoration: const InputDecoration(labelText: 'Duration (minutes)')),
-              const SizedBox(height: 8),
-              Row(children: [
-                const Text('Date: '),
-                Text(scheduledDate == null ? 'Not set' : scheduledDate.toString().split(' ')[0]),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: scheduledDate ?? DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) setState(() => scheduledDate = picked);
-                  },
-                  child: const Text('Pick'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final theme = widget.themeProvider;
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
-              ])
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final userId = widget.user['id'] ?? widget.user['patientId'] ?? widget.user['uid'];
-                if (userId != null) {
-                  final docRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('assignedExercises').doc(docId);
-                  await docRef.update({
-                    'sets': int.tryParse(setsC.text.trim()) ?? 0,
-                    'repetitions': int.tryParse(repsC.text.trim()) ?? 0,
-                    'duration': int.tryParse(durationC.text.trim()) ?? 0,
-                    'date': scheduledDate != null ? Timestamp.fromDate(scheduledDate!) : FieldValue.serverTimestamp(),
-                  });
-                }
-                Navigator.pop(context);
-                await _loadAssignedExercises();
-              },
-              child: const Text('Save'),
-            ),
-          ],
+              ),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.subtextColor.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Edit Assignment',
+                            style: TextStyle(
+                              color: theme.textColor,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Exercise Info Card
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.fitness_center,
+                                    color: theme.primaryColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        assignment['exerciseName'] ?? '',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.textColor,
+                                        ),
+                                      ),
+                                      if (assignment['category'] != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          assignment['category'],
+                                          style: TextStyle(
+                                            color: theme.subtextColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Exercise Parameters
+                          Text(
+                            'Exercise Parameters',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: theme.subtextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Sets Input
+                          TextField(
+                            controller: setsC,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Number of Sets',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.repeat, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Repetitions Input
+                          TextField(
+                            controller: repsC,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Repetitions per Set',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.refresh, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Duration Input
+                          TextField(
+                            controller: durationC,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Duration (minutes)',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.timer, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Schedule Date
+                          Text(
+                            'Schedule Date',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: theme.subtextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: scheduledDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime(2100),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.light(
+                                        primary: theme.primaryColor,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setState(() => scheduledDate = picked);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: theme.primaryColor.withOpacity(0.3),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today,
+                                    color: theme.primaryColor,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    scheduledDate == null
+                                        ? 'Select Date'
+                                        : scheduledDate.toString().split(' ')[0],
+                                    style: TextStyle(
+                                      color: theme.textColor,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Action Buttons
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.subtextColor,
+                              side: BorderSide(color: theme.subtextColor),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    if (scheduledDate == null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Please select a date'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    setState(() => isLoading = true);
+
+                                    try {
+                                      final userId = widget.user['id'] ?? widget.user['patientId'] ?? widget.user['uid'];
+                                      if (userId != null) {
+                                        final docRef = FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(userId)
+                                            .collection('assignedExercises')
+                                            .doc(docId);
+                                        
+                                        await docRef.update({
+                                          'sets': int.tryParse(setsC.text.trim()) ?? 0,
+                                          'repetitions': int.tryParse(repsC.text.trim()) ?? 0,
+                                          'duration': int.tryParse(durationC.text.trim()) ?? 0,
+                                          'date': Timestamp.fromDate(scheduledDate!),
+                                        });
+
+                                        Navigator.pop(context);
+                                        await _loadAssignedExercises();
+
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: const Text('Assignment updated successfully'),
+                                            backgroundColor: Colors.green,
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      setState(() => isLoading = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error updating assignment: $e'),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('Save Changes'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
-      }),
+      },
     );
   }
 
@@ -279,40 +766,310 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
     final notesC = TextEditingController();
     final videoC = TextEditingController();
     final instructionsC = TextEditingController();
+    bool isLoading = false;
 
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Exercise'),
-        content: SingleChildScrollView(
-          child: Column(children: [
-            TextField(controller: titleC, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: categoryC, decoration: const InputDecoration(labelText: 'Category (e.g. Lower Body)')),
-            TextField(controller: notesC, decoration: const InputDecoration(labelText: 'Description')),
-            TextField(controller: videoC, decoration: const InputDecoration(labelText: 'Video URL or asset path')),
-            TextField(controller: instructionsC, decoration: const InputDecoration(labelText: 'Instructions (newline-separated)')),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final doc = await FirebaseFirestore.instance.collection('exercises').add({
-                'title': titleC.text.trim(),
-                'category': categoryC.text.trim(),
-                'description': notesC.text.trim(),
-                'videoUrl': videoC.text.trim(),
-                'instructions': instructionsC.text.trim().split('\n'),
-                'createdAt': FieldValue.serverTimestamp(),
-              });
-              print('Created exercise ${doc.id}');
-              Navigator.pop(context);
-              await _loadExercises();
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final theme = widget.themeProvider;
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.subtextColor.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Create New Exercise',
+                            style: TextStyle(
+                              color: theme.textColor,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add a new exercise to assign to patients',
+                            style: TextStyle(
+                              color: theme.subtextColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Name Field
+                          TextField(
+                            controller: titleC,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Exercise Name',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.fitness_center, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Category Field
+                          TextField(
+                            controller: categoryC,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Category',
+                              hintText: 'e.g. Lower Body, Upper Body, Core',
+                              hintStyle: TextStyle(color: theme.subtextColor.withOpacity(0.7)),
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.category, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Description Field
+                          TextField(
+                            controller: notesC,
+                            style: TextStyle(color: theme.textColor),
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              labelText: 'Description',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              alignLabelWithHint: true,
+                              hintText: 'Describe the exercise and its benefits',
+                              hintStyle: TextStyle(color: theme.subtextColor.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.description, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Video URL Field
+                          TextField(
+                            controller: videoC,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Video URL',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              hintText: 'Add a video demonstration link',
+                              hintStyle: TextStyle(color: theme.subtextColor.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.video_library, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Instructions Field
+                          TextField(
+                            controller: instructionsC,
+                            style: TextStyle(color: theme.textColor),
+                            maxLines: 5,
+                            decoration: InputDecoration(
+                              labelText: 'Instructions',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              alignLabelWithHint: true,
+                              hintText: 'Enter each instruction on a new line\nExample:\n1. Stand with feet shoulder-width apart\n2. Bend knees slowly\n3. Return to starting position',
+                              hintStyle: TextStyle(color: theme.subtextColor.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.list_alt, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Bottom Action Buttons
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.subtextColor,
+                              side: BorderSide(color: theme.subtextColor),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    if (titleC.text.trim().isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Exercise name is required'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    setState(() => isLoading = true);
+
+                                    try {
+                                      final doc = await FirebaseFirestore.instance.collection('exercises').add({
+                                        'title': titleC.text.trim(),
+                                        'category': categoryC.text.trim(),
+                                        'description': notesC.text.trim(),
+                                        'videoUrl': videoC.text.trim(),
+                                        'instructions': instructionsC.text.trim().split('\n'),
+                                        'createdAt': FieldValue.serverTimestamp(),
+                                      });
+                                      
+                                      Navigator.pop(context);
+                                      await _loadExercises();
+
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: const Text('Exercise created successfully'),
+                                          backgroundColor: Colors.green,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      setState(() => isLoading = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error creating exercise: $e'),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('Create Exercise'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -322,41 +1079,272 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
     final notesC = TextEditingController(text: exercise['description'] ?? '');
     final videoC = TextEditingController(text: exercise['videoUrl'] ?? '');
     final instructionsC = TextEditingController(text: (exercise['instructions'] ?? []).join('\n'));
+    bool isLoading = false;
 
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Exercise'),
-        content: SingleChildScrollView(
-          child: Column(children: [
-            TextField(controller: titleC, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: categoryC, decoration: const InputDecoration(labelText: 'Category')),
-            TextField(controller: notesC, decoration: const InputDecoration(labelText: 'Description')),
-            TextField(controller: videoC, decoration: const InputDecoration(labelText: 'Video URL')),
-            TextField(controller: instructionsC, decoration: const InputDecoration(labelText: 'Instructions (newline-separated)')),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final id = exercise['id'];
-              if (id != null) {
-                await FirebaseFirestore.instance.collection('exercises').doc(id).update({
-                  'title': titleC.text.trim(),
-                  'category': categoryC.text.trim(),
-                  'description': notesC.text.trim(),
-                  'videoUrl': videoC.text.trim(),
-                  'instructions': instructionsC.text.trim().split('\n'),
-                });
-                Navigator.pop(context);
-                await _loadExercises();
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final theme = widget.themeProvider;
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.subtextColor.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Edit Exercise',
+                            style: TextStyle(
+                              color: theme.textColor,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Name Field
+                          TextField(
+                            controller: titleC,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Exercise Name',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.fitness_center, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Category Field
+                          TextField(
+                            controller: categoryC,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Category',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.category, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Description Field
+                          TextField(
+                            controller: notesC,
+                            style: TextStyle(color: theme.textColor),
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              labelText: 'Description',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              alignLabelWithHint: true,
+                              prefixIcon: Icon(Icons.description, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Video URL Field
+                          TextField(
+                            controller: videoC,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Video URL',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.video_library, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Instructions Field
+                          TextField(
+                            controller: instructionsC,
+                            style: TextStyle(color: theme.textColor),
+                            maxLines: 5,
+                            decoration: InputDecoration(
+                              labelText: 'Instructions',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              alignLabelWithHint: true,
+                              hintText: 'Enter each instruction on a new line',
+                              hintStyle: TextStyle(color: theme.subtextColor.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.list_alt, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Bottom Action Buttons
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.subtextColor,
+                              side: BorderSide(color: theme.subtextColor),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    if (titleC.text.trim().isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Exercise name is required'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    setState(() => isLoading = true);
+
+                                    final id = exercise['id'];
+                                    if (id != null) {
+                                      await FirebaseFirestore.instance.collection('exercises').doc(id).update({
+                                        'title': titleC.text.trim(),
+                                        'category': categoryC.text.trim(),
+                                        'description': notesC.text.trim(),
+                                        'videoUrl': videoC.text.trim(),
+                                        'instructions': instructionsC.text.trim().split('\n'),
+                                      });
+                                      Navigator.pop(context);
+                                      await _loadExercises();
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('Save Changes'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -380,70 +1368,413 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
     final repsC = TextEditingController(text: '10');
     final durationC = TextEditingController(text: '5');
     DateTime? scheduledDate;
+    bool isLoading = false;
 
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      builder: (context) => StatefulBuilder(builder: (context, setState) {
-        return AlertDialog(
-          title: const Text('Assign Exercise'),
-          content: SingleChildScrollView(
-            child: Column(children: [
-              Text('To: ${widget.user['name'] ?? widget.user['email'] ?? widget.user['id']}'),
-              Text('Exercise: ${exercise['title'] ?? exercise['name'] ?? 'Exercise'}'),
-              TextField(controller: setsC, decoration: const InputDecoration(labelText: 'Sets')),
-              TextField(controller: repsC, decoration: const InputDecoration(labelText: 'Repetitions')),
-              TextField(controller: durationC, decoration: const InputDecoration(labelText: 'Duration (minutes)')),
-              const SizedBox(height: 8),
-              Row(children: [
-                const Text('Date: '),
-                Text(scheduledDate == null ? 'Not set' : scheduledDate.toString().split(' ')[0]),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) setState(() => scheduledDate = picked);
-                  },
-                  child: const Text('Pick'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final theme = widget.themeProvider;
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
-              ])
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final assignment = {
-                  'exerciseId': exercise['id'],
-                  'exerciseName': exercise['title'] ?? exercise['name'],
-                  'category': exercise['category'] ?? '',
-                  'videoUrl': exercise['videoUrl'] ?? '',
-                  'instructions': exercise['instructions'] ?? [],
-                  'sets': int.tryParse(setsC.text.trim()) ?? 0,
-                  'repetitions': int.tryParse(repsC.text.trim()) ?? 0,
-                  'duration': int.tryParse(durationC.text.trim()) ?? 0,
-                  'date': scheduledDate != null ? Timestamp.fromDate(scheduledDate!) : FieldValue.serverTimestamp(),
-                  'completed': false,
-                  'assignedBy': FirebaseAuth.instance.currentUser?.uid,
-                  'createdAt': FieldValue.serverTimestamp(),
-                  'assignedAt': FieldValue.serverTimestamp(),
-                };
+              ),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.subtextColor.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Assign Exercise',
+                            style: TextStyle(
+                              color: theme.textColor,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Exercise Info Card
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.fitness_center,
+                                      color: theme.primaryColor,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        exercise['title'] ?? exercise['name'] ?? 'Exercise',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.textColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Category: ${exercise['category'] ?? 'General'}',
+                                  style: TextStyle(
+                                    color: theme.subtextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Patient Info
+                          Text(
+                            'Patient',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: theme.subtextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: theme.primaryColor.withOpacity(0.2),
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      (widget.user['name'] ?? widget.user['email'] ?? '?')[0].toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.user['name'] ?? widget.user['email'] ?? widget.user['id'] ?? 'Unknown',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.textColor,
+                                        ),
+                                      ),
+                                      if (widget.user['email'] != null)
+                                        Text(
+                                          widget.user['email'],
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: theme.subtextColor,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Exercise Parameters
+                          Text(
+                            'Exercise Parameters',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: theme.subtextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Sets Input
+                          TextField(
+                            controller: setsC,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Number of Sets',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.repeat, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Repetitions Input
+                          TextField(
+                            controller: repsC,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Repetitions per Set',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.refresh, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Duration Input
+                          TextField(
+                            controller: durationC,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Duration (minutes)',
+                              labelStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.timer, color: theme.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: theme.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Date Picker
+                          Text(
+                            'Schedule Date',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: theme.subtextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: scheduledDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime(2100),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.light(
+                                        primary: theme.primaryColor,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setState(() => scheduledDate = picked);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: theme.primaryColor.withOpacity(0.3),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today,
+                                    color: theme.primaryColor,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    scheduledDate == null
+                                        ? 'Select Date'
+                                        : scheduledDate.toString().split(' ')[0],
+                                    style: TextStyle(
+                                      color: theme.textColor,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Bottom Action Buttons
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.subtextColor,
+                              side: BorderSide(color: theme.subtextColor),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    if (scheduledDate == null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Please select a date'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
 
-                final userId = widget.user['id'] ?? widget.user['patientId'] ?? widget.user['uid'];
-                if (userId != null) {
-                  await FirebaseFirestore.instance.collection('users').doc(userId).collection('assignedExercises').add(assignment);
-                }
-                Navigator.pop(context);
-              },
-              child: const Text('Assign'),
-            ),
-          ],
+                                    setState(() => isLoading = true);
+
+                                    final assignment = {
+                                      'exerciseId': exercise['id'],
+                                      'exerciseName': exercise['title'] ?? exercise['name'],
+                                      'category': exercise['category'] ?? '',
+                                      'videoUrl': exercise['videoUrl'] ?? '',
+                                      'instructions': exercise['instructions'] ?? [],
+                                      'sets': int.tryParse(setsC.text.trim()) ?? 0,
+                                      'repetitions': int.tryParse(repsC.text.trim()) ?? 0,
+                                      'duration': int.tryParse(durationC.text.trim()) ?? 0,
+                                      'date': Timestamp.fromDate(scheduledDate!),
+                                      'completed': false,
+                                      'assignedBy': FirebaseAuth.instance.currentUser?.uid,
+                                      'createdAt': FieldValue.serverTimestamp(),
+                                      'assignedAt': FieldValue.serverTimestamp(),
+                                    };
+
+                                    final userId = widget.user['id'] ?? widget.user['patientId'] ?? widget.user['uid'];
+                                    if (userId != null) {
+                                      await FirebaseFirestore.instance
+                                          .collection('users')
+                                          .doc(userId)
+                                          .collection('assignedExercises')
+                                          .add(assignment);
+                                    }
+                                    Navigator.pop(context);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('Assign Exercise'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
-      }),
+      },
     );
   }
 
@@ -552,16 +1883,148 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
                           ? const Center(child: CircularProgressIndicator())
                           : ListView.builder(
                               itemCount: _exercises.length,
+                              padding: const EdgeInsets.all(16),
                               itemBuilder: (context, i) {
                                 final ex = _exercises[i];
-                                return ListTile(
-                                  title: Text(ex['title'] ?? ex['name'] ?? 'Exercise'),
-                                  subtitle: Text(ex['category'] ?? ''),
-                                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    IconButton(icon: Icon(Icons.edit, color: theme.primaryColor), onPressed: () => _showEditExerciseDialog(ex)),
-                                    IconButton(icon: Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteExercise(ex['id'])),
-                                    ElevatedButton(onPressed: () => _showAssignDialog(ex), child: const Text('Assign')),
-                                  ]),
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: theme.cardColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: theme.primaryColor.withOpacity(0.1),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: theme.primaryColor.withOpacity(0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              width: 56,
+                                              height: 56,
+                                              decoration: BoxDecoration(
+                                                color: theme.primaryColor.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Icon(
+                                                Icons.fitness_center,
+                                                color: theme.primaryColor,
+                                                size: 24,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    ex['title'] ?? ex['name'] ?? 'Exercise',
+                                                    style: TextStyle(
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: theme.textColor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: theme.primaryColor.withOpacity(0.1),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Text(
+                                                      ex['category'] ?? 'General',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: theme.primaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (ex['description'] != null) ...[
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      ex['description'],
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: theme.subtextColor,
+                                                      ),
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: theme.backgroundColor,
+                                          borderRadius: const BorderRadius.only(
+                                            bottomLeft: Radius.circular(16),
+                                            bottomRight: Radius.circular(16),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(
+                                                Icons.edit_outlined,
+                                                color: theme.primaryColor,
+                                              ),
+                                              onPressed: () => _showEditExerciseDialog(ex),
+                                              tooltip: 'Edit Exercise',
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.red,
+                                              ),
+                                              onPressed: () => _deleteExercise(ex['id']),
+                                              tooltip: 'Delete Exercise',
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton.icon(
+                                              onPressed: () => _showAssignDialog(ex),
+                                              icon: const Icon(
+                                                Icons.add,
+                                                size: 18,
+                                              ),
+                                              label: const Text('Assign'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: theme.primaryColor,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 16,
+                                                  vertical: 12,
+                                                ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 );
                               },
                             )),

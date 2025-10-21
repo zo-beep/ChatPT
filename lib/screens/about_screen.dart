@@ -97,14 +97,14 @@ class AboutScreen extends StatelessWidget {
                 _buildInfoCard(
                   theme,
                   'Last Updated',
-                  'December 2024',
+                  'October 25, 2025',
                   Icons.update,
                 ),
                  const SizedBox(height: 48),
                  
                  // Copyright
                 Text(
-                  '© 2024 ChatPT. All rights reserved.',
+                  '© 2025 ChatPT. All rights reserved.',
                   style: TextStyle(
                     fontSize: 12,
                     color: theme.subtextColor.withOpacity(0.7),

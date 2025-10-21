@@ -384,7 +384,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               // Footer
               Center(
                 child: Text(
-                  '© 2024 ChatPT. All rights reserved.',
+                  '© 2025 ChatPT. All rights reserved.',
                   style: TextStyle(
                     fontSize: 12,
                     color: theme.subtextColor.withOpacity(0.7),

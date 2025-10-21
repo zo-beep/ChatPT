@@ -24,7 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _ageController = TextEditingController();
   String _selectedGender = 'Prefer not to say';
   // Role will be managed from Firebase Console; default locally to 'patient'
-  String _selectedRole = 'patient';
+  final String _selectedRole = 'patient';
 
   // Step 2: Account Credentials Controllers
   final TextEditingController _emailController = TextEditingController();
@@ -417,7 +417,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Last updated: December 2024',
+                          'Last updated: October 25, 2025',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -492,7 +492,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   child: Center(
                     child: Text(
-                      '© 2024 ChatPT. All rights reserved.',
+                      '© 2025 ChatPT. All rights reserved.',
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.grey[600],
