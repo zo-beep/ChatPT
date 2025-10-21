@@ -26,6 +26,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     _loadExercises();
   }
 
+  List<Map<String, dynamic>> _todayExercises = [];
+  List<Map<String, dynamic>> _upcomingExercises = [];
+
   Future<void> _loadExercises() async {
     setState(() {
       _isLoading = true;
@@ -35,16 +38,41 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       final user = FirebaseAuth.instance.currentUser;
       _userId = user?.uid;
       if (user != null) {
-        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('assignedExercises').orderBy('date').get();
-        _exercises = snap.docs.map((d) {
-          return {'id': d.id, ...d.data()};
+        // Get today's date at midnight for comparison
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+
+        final snap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('assignedExercises')
+            .orderBy('date')
+            .get();
+
+        _exercises = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+        
+        // Split exercises into today and upcoming
+        _todayExercises = _exercises.where((e) {
+          final date = (e['date'] as Timestamp?)?.toDate();
+          if (date == null) return false;
+          return DateTime(date.year, date.month, date.day).isAtSameMomentAs(today);
+        }).toList();
+
+        _upcomingExercises = _exercises.where((e) {
+          final date = (e['date'] as Timestamp?)?.toDate();
+          if (date == null) return false;
+          return DateTime(date.year, date.month, date.day).isAfter(today);
         }).toList();
       } else {
         _exercises = [];
+        _todayExercises = [];
+        _upcomingExercises = [];
       }
     } catch (e) {
       print('Failed to load assigned exercises: $e');
       _exercises = [];
+      _todayExercises = [];
+      _upcomingExercises = [];
     }
 
     setState(() {
@@ -52,7 +80,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     });
   }
 
-  // Empty placeholder for methods section
+  // No helper methods needed - completion logic moved to VideoGuideScreen
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +144,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    if (_exercises.isEmpty) ...[
+                    if (_todayExercises.isEmpty && _upcomingExercises.isEmpty) ...[
                       Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -148,27 +176,65 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                         ),
                       ),
                     ] else ...[
-                      Text(
-                        'Today\'s Exercises',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: widget.themeProvider.textColor,
+                      if (_todayExercises.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Icon(Icons.today, color: widget.themeProvider.primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Today\'s Exercises',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: widget.themeProvider.textColor,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      ..._exercises.map(
-                        (exercise) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildExerciseCard(
-                            context,
-                            exercise['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? 'Exercise',
-                            exercise['completed'] == true ? 'Completed' : 'Not yet started',
-                            widget.themeProvider.secondaryColor,
-                            exercise,
+                        const SizedBox(height: 16),
+                        ..._todayExercises.map(
+                          (exercise) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildExerciseCard(
+                              context,
+                              exercise['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? 'Exercise',
+                              exercise['completed'] == true ? 'Completed' : 'Not yet started',
+                              widget.themeProvider.secondaryColor,
+                              exercise,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                      if (_upcomingExercises.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Icon(Icons.event, color: widget.themeProvider.primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Upcoming Exercises',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: widget.themeProvider.textColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        ..._upcomingExercises.map(
+                          (exercise) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildExerciseCard(
+                              context,
+                              exercise['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? 'Exercise',
+                              exercise['completed'] == true ? 'Completed' : (exercise['date'] as Timestamp?)?.toDate().toString().split(' ')[0] ?? 'Scheduled',
+                              widget.themeProvider.secondaryColor.withOpacity(0.8),
+                              exercise,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -177,10 +243,24 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     );
   }
 
+  bool _isExerciseForToday(Map<String, dynamic> exercise) {
+    final date = (exercise['date'] as Timestamp?)?.toDate();
+    if (date == null) return false;
+
+    final now = DateTime.now();
+    final exerciseDate = DateTime(date.year, date.month, date.day);
+    final today = DateTime(now.year, now.month, now.day);
+
+    return exerciseDate.isAtSameMomentAs(today);
+  }
+
   Widget _buildExerciseCard(
       BuildContext context, String title, String status, Color bgColor, Map<String, dynamic> exercise) {
+    final isToday = _isExerciseForToday(exercise);
+    final isCompleted = exercise['completed'] == true;
+
     return GestureDetector(
-      onTap: () async {
+      onTap: isToday ? () async {
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
@@ -195,20 +275,23 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               ]),
               themeProvider: widget.themeProvider,
               exerciseData: exercise,
+              canComplete: !isCompleted,
             ),
           ),
         );
-        if (result == true) {
-          setState(() {
-            exercise['completed'] = true;
-          });
+        if (result == true && mounted) {
+          await _loadExercises(); // Reload to update all lists
         }
-      },
+      } : null,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: bgColor,
+          color: isToday ? bgColor : bgColor.withOpacity(0.6),
           borderRadius: BorderRadius.circular(12),
+          border: isToday ? null : Border.all(
+            color: widget.themeProvider.subtextColor.withOpacity(0.2),
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
@@ -216,30 +299,77 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: widget.themeProvider.textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(
-                          status,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: widget.themeProvider.subtextColor,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: widget.themeProvider.textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            if (exercise['date'] != null) ...[
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 14,
+                                    color: widget.themeProvider.subtextColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    (exercise['date'] as Timestamp).toDate().toString().split(' ')[0],
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: widget.themeProvider.subtextColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                            Row(
+                              children: [
+                                Icon(
+                                  exercise['completed'] == true ? Icons.check_circle : Icons.pending,
+                                  size: 14,
+                                  color: exercise['completed'] == true ? Colors.green : widget.themeProvider.subtextColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  status,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: exercise['completed'] == true ? Colors.green : widget.themeProvider.subtextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                       if (exercise.containsKey('sets') || exercise.containsKey('repetitions') || exercise.containsKey('duration'))
-                        Text(
-                          '${exercise['sets'] ?? ''}x${exercise['repetitions'] ?? ''} ${exercise['duration'] != null ? '${exercise['duration']}min' : ''}',
-                          style: TextStyle(fontSize: 12, color: widget.themeProvider.subtextColor),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: widget.themeProvider.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${exercise['sets'] ?? ''}x${exercise['repetitions'] ?? ''} ${exercise['duration'] != null ? '${exercise['duration']}min' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: widget.themeProvider.primaryColor,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -257,105 +387,21 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               ),
             ),
             Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (exercise.containsKey('completed') && exercise['completed'] != true)
-                  Checkbox(
-                    value: exercise['completed'] == true,
-                    onChanged: (val) async {
-                      // Toggle completion in Firestore if this is an assigned exercise
-                      if (_userId != null && exercise.containsKey('id')) {
-                        final docRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('assignedExercises').doc(exercise['id']);
-                        if (val == true) {
-                          await FirebaseFirestore.instance.runTransaction((tx) async {
-                            final snap = await tx.get(docRef);
-                            if (!snap.exists) return;
-                            final data = snap.data() ?? {};
-                            if ((data['completed'] == true) || (data['completedAt'] != null)) return;
-                            tx.update(docRef, {'completed': true, 'completedAt': FieldValue.serverTimestamp()});
-                            final histRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('exerciseHistory').doc();
-                            tx.set(histRef, {
-                              'assignmentId': exercise['id'],
-                              'exerciseId': data['exerciseId'],
-                              'exerciseName': data['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? '',
-                              'sets': data['sets'] ?? exercise['sets'] ?? 0,
-                              'repetitions': data['repetitions'] ?? exercise['repetitions'] ?? 0,
-                              'duration': data['duration'] ?? exercise['duration'] ?? 0,
-                              'assignedBy': data['assignedBy'],
-                              'assignedAt': data['assignedAt'],
-                              'completedAt': FieldValue.serverTimestamp(),
-                              'createdAt': FieldValue.serverTimestamp(),
-                            });
-                          });
-                          setState(() {
-                            exercise['completed'] = true;
-                          });
-                        } else {
-                          await docRef.update({'completed': false, 'completedAt': FieldValue.delete()});
-                          setState(() {
-                            exercise['completed'] = false;
-                          });
-                        }
-                      } else {
-                        setState(() {
-                          exercise['completed'] = val == true;
-                        });
-                      }
-                    },
-                  ),
-                if (exercise.containsKey('completed') && exercise['completed'] == true)
-                  Column(
-                    children: [
-                      const Icon(Icons.check_circle, color: Colors.green),
-                      const SizedBox(height: 4),
-                      if (exercise['completedAt'] is Timestamp)
-                        Text((exercise['completedAt'] as Timestamp).toDate().toLocal().toString().split(' ')[0], style: TextStyle(color: widget.themeProvider.subtextColor, fontSize: 12)),
-                    ],
-                  ),
-                const SizedBox(height: 8),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: widget.themeProvider.primaryColor,
-                  size: 20,
-                ),
-                const SizedBox(height: 8),
-                if (!(exercise.containsKey('completed') && exercise['completed'] == true))
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (_userId != null && exercise.containsKey('id')) {
-                        final docRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('assignedExercises').doc(exercise['id']);
-                        await FirebaseFirestore.instance.runTransaction((tx) async {
-                          final snap = await tx.get(docRef);
-                          if (!snap.exists) return;
-                          final data = snap.data() ?? {};
-                          if ((data['completed'] == true) || (data['completedAt'] != null)) return;
-                          tx.update(docRef, {'completed': true, 'completedAt': FieldValue.serverTimestamp()});
-                          final histRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('exerciseHistory').doc();
-                          tx.set(histRef, {
-                            'assignmentId': exercise['id'],
-                            'exerciseId': data['exerciseId'],
-                            'exerciseName': data['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? '',
-                            'sets': data['sets'] ?? exercise['sets'] ?? 0,
-                            'repetitions': data['repetitions'] ?? exercise['repetitions'] ?? 0,
-                            'duration': data['duration'] ?? exercise['duration'] ?? 0,
-                            'assignedBy': data['assignedBy'],
-                            'assignedAt': data['assignedAt'],
-                            'completedAt': FieldValue.serverTimestamp(),
-                            'createdAt': FieldValue.serverTimestamp(),
-                          });
-                        });
-                        setState(() {
-                          exercise['completed'] = true;
-                        });
-                      }
-                      showDialog(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          content: const Text('Exercise marked as complete!'),
-                          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))],
-                        ),
-                      );
-                    },
-                    child: const Text('Complete'),
+                if (isCompleted)
+                  const Icon(Icons.check_circle, color: Colors.green, size: 24)
+                else if (isToday)
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: widget.themeProvider.primaryColor,
+                    size: 20,
+                  )
+                else
+                  Icon(
+                    Icons.lock_clock,
+                    color: widget.themeProvider.subtextColor.withOpacity(0.5),
+                    size: 24,
                   ),
               ],
             ),

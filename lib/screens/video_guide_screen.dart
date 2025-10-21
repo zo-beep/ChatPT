@@ -9,6 +9,7 @@ class VideoGuideScreen extends StatefulWidget {
   final List<String> instructions;
   final ThemeProvider? themeProvider;
   final Map<String, dynamic>? exerciseData;
+  final bool canComplete;
 
   const VideoGuideScreen({
     super.key,
@@ -16,6 +17,7 @@ class VideoGuideScreen extends StatefulWidget {
     required this.instructions,
     this.themeProvider,
     this.exerciseData,
+    this.canComplete = false,
   });
 
   @override
@@ -82,13 +84,13 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
           final histRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('exerciseHistory').doc();
           tx.set(histRef, {
             'assignmentId': assignmentId,
-            'exerciseId': data['exerciseId'] ?? null,
+            'exerciseId': data['exerciseId'],
             'exerciseName': data['exerciseName'] ?? '',
             'sets': data['sets'] ?? 0,
             'repetitions': data['repetitions'] ?? 0,
             'duration': data['duration'] ?? 0,
-            'assignedBy': data['assignedBy'] ?? null,
-            'assignedAt': data['assignedAt'] ?? null,
+            'assignedBy': data['assignedBy'],
+            'assignedAt': data['assignedAt'],
             'completedAt': FieldValue.serverTimestamp(),
             'createdAt': FieldValue.serverTimestamp(),
           });
@@ -259,26 +261,28 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _markAsComplete,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              if (widget.canComplete) ...[
+                ElevatedButton(
+                  onPressed: _markAsComplete,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
                   ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Mark as complete',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  child: const Text(
+                    'Mark as complete',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
               OutlinedButton(
                 onPressed: () {
                   Navigator.pop(context);
@@ -294,9 +298,9 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
                     width: 1.5,
                   ),
                 ),
-                child: const Text(
-                  'Next Exercise',
-                  style: TextStyle(
+                child: Text(
+                  widget.canComplete ? 'Next Exercise' : 'Close',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
