@@ -112,7 +112,6 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   Widget build(BuildContext context) {
     final themeProvider = widget.themeProvider;
     final displayName = _profile['name'] ?? 'Surname, First Name';
-    final uidDisplay = _profile['patientId'] ?? 'UID: #000002';
     final role = (_profile['role'] ?? '').toString().trim();
     final roleLabel = role.isEmpty ? 'Doctor' : (role[0].toUpperCase() + role.substring(1));
 
@@ -196,14 +195,6 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                   fontSize: 19,
                                   fontWeight: FontWeight.w700,
                                   color: themeProvider.textColor,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                uidDisplay,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: themeProvider.subtextColor,
                                 ),
                               ),
                             ],

@@ -149,14 +149,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                 color: theme.textColor,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _userProfile?['patientId'] ?? '001-2345-678',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: theme.subtextColor,
-                              ),
-                            ),
                           ],
                         ),
                       ],
@@ -344,7 +336,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         final profileData = {
           'name': _controllers['name']?.text ?? '',
           'patientId': _controllers['patientId']?.text ?? '',
-          'age': int.tryParse(_controllers['age']?.text ?? '') ?? null,
+          'age': int.tryParse(_controllers['age']?.text ?? ''),
           'gender': _controllers['gender']?.text ?? '',
           'contactNumber': _controllers['contactNumber']?.text ?? '',
           'email': _controllers['email']?.text ?? '',
