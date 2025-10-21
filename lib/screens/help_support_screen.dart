@@ -11,12 +11,8 @@ class HelpSupportScreen extends StatefulWidget {
 }
 
 class _HelpSupportScreenState extends State<HelpSupportScreen> {
-  final TextEditingController _feedbackController = TextEditingController();
-  bool _isSubmittingFeedback = false;
-
   @override
   void dispose() {
-    _feedbackController.dispose();
     super.dispose();
   }
 
@@ -271,116 +267,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               ),
               const SizedBox(height: 32),
               
-              // Feedback Form Section
-              Text(
-                'Send Feedback',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: theme.textColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.feedback,
-                          color: theme.primaryColor,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Share your suggestions',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _feedbackController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: 'Tell us how we can improve ChatPT...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: theme.primaryColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: theme.primaryColor),
-                        ),
-                        contentPadding: const EdgeInsets.all(16),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isSubmittingFeedback ? null : _submitFeedback,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _isSubmittingFeedback
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text('Submitting...'),
-                                ],
-                              )
-                            : Text(
-                                'Submit Feedback',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              
               // Footer
               Center(
                 child: Text(
@@ -458,35 +344,5 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     );
   }
 
-  Future<void> _submitFeedback() async {
-    if (_feedbackController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter your feedback before submitting'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
 
-    setState(() {
-      _isSubmittingFeedback = true;
-    });
-
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isSubmittingFeedback = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Thank you for your feedback! We\'ll review it soon.'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    _feedbackController.clear();
-  }
 }

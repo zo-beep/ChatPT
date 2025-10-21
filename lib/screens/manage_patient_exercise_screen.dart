@@ -346,44 +346,6 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
     }
   }
 
-  Future<void> _markAssignmentComplete(String docId, bool completed) async {
-    final userId = widget.user['id'] ?? widget.user['patientId'] ?? widget.user['uid'];
-    if (userId == null) return;
-    try {
-      final docRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('assignedExercises').doc(docId);
-      if (completed == true) {
-        // Use a transaction to ensure we only create one history entry per assignment
-        await FirebaseFirestore.instance.runTransaction((tx) async {
-          final snap = await tx.get(docRef);
-          if (!snap.exists) return;
-          final data = snap.data() ?? {};
-          // if already completed, nothing to do
-          if ((data['completed'] == true) || (data['completedAt'] != null)) return;
-          tx.update(docRef, {'completed': true, 'completedAt': FieldValue.serverTimestamp()});
-          final histRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('exerciseHistory').doc();
-          tx.set(histRef, {
-            'assignmentId': docId,
-            'exerciseId': data['exerciseId'],
-            'exerciseName': data['exerciseName'] ?? '',
-            'sets': data['sets'] ?? 0,
-            'repetitions': data['repetitions'] ?? 0,
-            'duration': data['duration'] ?? 0,
-            'assignedBy': data['assignedBy'],
-            'assignedAt': data['assignedAt'],
-            'completedAt': FieldValue.serverTimestamp(),
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        });
-      } else {
-        // un-marking: simply update assignment (do not remove history)
-        await FirebaseFirestore.instance.collection('users').doc(userId).collection('assignedExercises').doc(docId).update({'completed': false, 'completedAt': FieldValue.delete()});
-      }
-      await _loadAssignedExercises();
-    } catch (e) {
-      print('Failed to update assignment completion: $e');
-    }
-  }
-
   Future<void> _showEditAssignmentDialog(Map<String, dynamic> assignment, String docId) async {
     final setsC = TextEditingController(text: (assignment['sets'] ?? '').toString());
     final repsC = TextEditingController(text: (assignment['repetitions'] ?? '').toString());
@@ -1872,7 +1834,6 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
                                       title: Text(a['exerciseName'] ?? ''),
                                       subtitle: Text(subtitleParts.join(' • ')),
                                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                        IconButton(icon: Icon(Icons.check, color: a['completed'] == true ? Colors.green : theme.primaryColor), onPressed: () => _markAssignmentComplete(a['id'], !(a['completed'] == true))),
                                         IconButton(icon: Icon(Icons.edit, color: theme.primaryColor), onPressed: () => _showEditAssignmentDialog(a, a['id'])),
                                         IconButton(icon: Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteAssignment(a['id'])),
                                       ]),
