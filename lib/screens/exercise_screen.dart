@@ -31,97 +31,28 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       _isLoading = true;
     });
 
-    // Try to load assigned exercises for logged-in user
     try {
       final user = FirebaseAuth.instance.currentUser;
       _userId = user?.uid;
       if (user != null) {
         final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('assignedExercises').orderBy('date').get();
-        if (snap.docs.isNotEmpty) {
-          _exercises = snap.docs.map((d) {
-            return {'id': d.id, ...d.data()};
-          }).toList();
-          setState(() {
-            _isLoading = false;
-          });
-          return;
-        }
+        _exercises = snap.docs.map((d) {
+          return {'id': d.id, ...d.data()};
+        }).toList();
+      } else {
+        _exercises = [];
       }
     } catch (e) {
       print('Failed to load assigned exercises: $e');
+      _exercises = [];
     }
 
-    // Fallback to mock exercises
     setState(() {
-      _exercises = _getMockExercises();
       _isLoading = false;
     });
   }
 
-  List<Map<String, dynamic>> _getMockExercises() {
-    return [
-      {
-        'name': 'Heel Slides',
-        'description': 'Gentle knee movement exercise',
-        'duration': 5,
-        'instructions': [
-          '1. Lie on your back, legs straight.',
-          '2. Bend one knee, sliding your heel toward your buttocks.',
-          '3. Straighten your leg.',
-          '4. Slide back to start.',
-          '5. Repeat 10-15 times per leg, 2-3 sets daily.',
-        ],
-        'videoUrl': 'assets/videos/mockvid.mp4',
-        'category': 'Lower Body',
-        'difficulty': 'Beginner',
-      },
-      {
-        'name': 'Knee Bends',
-        'description': 'Seated knee flexion exercise',
-        'duration': 5,
-        'instructions': [
-          '1. Sit on a chair with feet flat on the floor.',
-          '2. Slowly bend your knee to lift your foot off the ground.',
-          '3. Hold for 3-5 seconds.',
-          '4. Lower your foot back down.',
-          '5. Repeat 10-15 times per leg, 2-3 sets daily.',
-        ],
-        'videoUrl': 'assets/videos/mockvid.mp4',
-        'category': 'Lower Body',
-        'difficulty': 'Beginner',
-      },
-      {
-        'name': 'Straight Leg Raises',
-        'description': 'Leg strengthening exercise',
-        'duration': 5,
-        'instructions': [
-          '1. Lie on your back with one leg bent and foot flat.',
-          '2. Keep the other leg straight.',
-          '3. Lift the straight leg up to the height of the bent knee.',
-          '4. Hold for 2-3 seconds.',
-          '5. Lower slowly. Repeat 10-15 times per leg, 2-3 sets daily.',
-        ],
-        'videoUrl': 'assets/videos/mockvid.mp4',
-        'category': 'Lower Body',
-        'difficulty': 'Beginner',
-      },
-      {
-        'name': 'Ankle pumps & Circles',
-        'description': 'Ankle mobility exercise',
-        'duration': 5,
-        'instructions': [
-          '1. Sit or lie down comfortably.',
-          '2. Point your toes away from you, then pull them toward you.',
-          '3. Rotate your ankle in circles, clockwise then counterclockwise.',
-          '4. Do 10 pumps and 10 circles in each direction.',
-          '5. Repeat 2-3 times daily for each ankle.',
-        ],
-        'videoUrl': 'assets/videos/mockvid.mp4',
-        'category': 'Lower Body',
-        'difficulty': 'Beginner',
-      },
-    ];
-  }
+  // Empty placeholder for methods section
 
   @override
   Widget build(BuildContext context) {
@@ -185,25 +116,60 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      'Today\'s Exercise: Lower Body',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: widget.themeProvider.textColor,
+                    if (_exercises.isEmpty) ...[
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 48,
+                              color: widget.themeProvider.subtextColor,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No exercises assigned yet',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: widget.themeProvider.textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Please consult with your doctor to get your personalized exercise plan',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: widget.themeProvider.subtextColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ..._exercises.map((exercise) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildExerciseCard(
-                        context,
-                        exercise['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? 'Exercise',
-                        exercise['completed'] == true ? 'Completed' : 'Not yet started',
-                        widget.themeProvider.secondaryColor,
-                        exercise,
+                    ] else ...[
+                      Text(
+                        'Today\'s Exercises',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: widget.themeProvider.textColor,
+                        ),
                       ),
-                    )),
+                      const SizedBox(height: 16),
+                      ..._exercises.map(
+                        (exercise) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildExerciseCard(
+                            context,
+                            exercise['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? 'Exercise',
+                            exercise['completed'] == true ? 'Completed' : 'Not yet started',
+                            widget.themeProvider.secondaryColor,
+                            exercise,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -220,7 +186,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           MaterialPageRoute(
             builder: (context) => VideoGuideScreen(
               exerciseName: title,
-              instructions: List<String>.from(exercise['instructions'] ?? _getInstructions(title)),
+              instructions: List<String>.from(exercise['instructions'] ?? [
+                '1. Follow the exercise instructions carefully.',
+                '2. Start slowly and increase intensity gradually.',
+                '3. Stop if you feel any pain.',
+                '4. Breathe normally throughout the exercise.',
+                '5. Repeat as recommended by your physical therapist.',
+              ]),
               themeProvider: widget.themeProvider,
               exerciseData: exercise,
             ),
@@ -303,13 +275,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                             final histRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('exerciseHistory').doc();
                             tx.set(histRef, {
                               'assignmentId': exercise['id'],
-                              'exerciseId': data['exerciseId'] ?? null,
+                              'exerciseId': data['exerciseId'],
                               'exerciseName': data['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? '',
                               'sets': data['sets'] ?? exercise['sets'] ?? 0,
                               'repetitions': data['repetitions'] ?? exercise['repetitions'] ?? 0,
                               'duration': data['duration'] ?? exercise['duration'] ?? 0,
-                              'assignedBy': data['assignedBy'] ?? null,
-                              'assignedAt': data['assignedAt'] ?? null,
+                              'assignedBy': data['assignedBy'],
+                              'assignedAt': data['assignedAt'],
                               'completedAt': FieldValue.serverTimestamp(),
                               'createdAt': FieldValue.serverTimestamp(),
                             });
@@ -360,13 +332,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                           final histRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('exerciseHistory').doc();
                           tx.set(histRef, {
                             'assignmentId': exercise['id'],
-                            'exerciseId': data['exerciseId'] ?? null,
+                            'exerciseId': data['exerciseId'],
                             'exerciseName': data['exerciseName'] ?? exercise['name'] ?? exercise['title'] ?? '',
                             'sets': data['sets'] ?? exercise['sets'] ?? 0,
                             'repetitions': data['repetitions'] ?? exercise['repetitions'] ?? 0,
                             'duration': data['duration'] ?? exercise['duration'] ?? 0,
-                            'assignedBy': data['assignedBy'] ?? null,
-                            'assignedAt': data['assignedAt'] ?? null,
+                            'assignedBy': data['assignedBy'],
+                            'assignedAt': data['assignedAt'],
                             'completedAt': FieldValue.serverTimestamp(),
                             'createdAt': FieldValue.serverTimestamp(),
                           });
@@ -393,48 +365,5 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     );
   }
 
-  List<String> _getInstructions(String exerciseName) {
-    switch (exerciseName) {
-      case 'Heel Slides':
-        return [
-          '1. Lie on your back, legs straight.',
-          '2. Bend one knee, sliding your heel toward your buttocks.',
-          '3. Straighten your leg.',
-          '4. Slide back to start.',
-          '5. Repeat 10-15 times per leg, 2-3 sets daily.',
-        ];
-      case 'Knee Bends':
-        return [
-          '1. Sit on a chair with feet flat on the floor.',
-          '2. Slowly bend your knee to lift your foot off the ground.',
-          '3. Hold for 3-5 seconds.',
-          '4. Lower your foot back down.',
-          '5. Repeat 10-15 times per leg, 2-3 sets daily.',
-        ];
-      case 'Straight Leg Raises':
-        return [
-          '1. Lie on your back with one leg bent and foot flat.',
-          '2. Keep the other leg straight.',
-          '3. Lift the straight leg up to the height of the bent knee.',
-          '4. Hold for 2-3 seconds.',
-          '5. Lower slowly. Repeat 10-15 times per leg, 2-3 sets daily.',
-        ];
-      case 'Ankle pumps & Circles':
-        return [
-          '1. Sit or lie down comfortably.',
-          '2. Point your toes away from you, then pull them toward you.',
-          '3. Rotate your ankle in circles, clockwise then counterclockwise.',
-          '4. Do 10 pumps and 10 circles in each direction.',
-          '5. Repeat 2-3 times daily for each ankle.',
-        ];
-      default:
-        return [
-          '1. Follow the exercise instructions carefully.',
-          '2. Start slowly and increase intensity gradually.',
-          '3. Stop if you feel any pain.',
-          '4. Breathe normally throughout the exercise.',
-          '5. Repeat as recommended by your physical therapist.',
-        ];
-    }
-  }
+
 }
