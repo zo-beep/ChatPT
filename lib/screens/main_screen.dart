@@ -4,6 +4,7 @@ import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/screens/progress_screen.dart';
 import 'package:demo_app/screens/chatbot_screen.dart';
 import 'package:demo_app/screens/patient_dashboard_screen.dart';
+import 'package:demo_app/screens/video_guide_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -396,16 +397,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        ExerciseScreen(
-                                            themeProvider:
-                                                widget.themeProvider),
-                                  ),
-                                );
+                              onPressed: () async {
+                                await _startTodaysSession();
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:
@@ -606,5 +599,167 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _getUserInitial() {
     return UserService.getUserInitial();
+  }
+
+  Future<void> _showCompletionModal() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: widget.themeProvider.cardColor,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Celebration icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.celebration,
+                    size: 40,
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // Title
+                Text(
+                  'Congratulations! 🎉',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: widget.themeProvider.textColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                
+                // Message
+                Text(
+                  'You have completed all today\'s exercises! Great job on staying consistent with your physical therapy routine.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: widget.themeProvider.subtextColor,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Awesome!',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _startTodaysSession() async {
+    try {
+      // Get today's date at midnight for comparison
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      // Get today's assigned exercises
+      final assignedSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .collection('assignedExercises')
+          .get();
+
+      final todayExercises = assignedSnap.docs
+          .map((d) => {'id': d.id, ...d.data()})
+          .where((exercise) {
+            final date = (exercise['date'] as Timestamp?)?.toDate();
+            if (date == null) return false;
+            return DateTime(date.year, date.month, date.day).isAtSameMomentAs(today);
+          })
+          .toList();
+
+      // Check if all exercises are completed
+      final incompleteExercises = todayExercises.where((exercise) => exercise['completed'] != true).toList();
+
+      if (incompleteExercises.isEmpty) {
+        // All exercises completed - show modal popup
+        if (mounted) {
+          await _showCompletionModal();
+        }
+        return;
+      }
+
+      // Navigate to the first incomplete exercise
+      final firstIncompleteExercise = incompleteExercises.first;
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoGuideScreen(
+            exerciseName: firstIncompleteExercise['exerciseName'] ?? firstIncompleteExercise['name'] ?? firstIncompleteExercise['title'] ?? 'Exercise',
+            instructions: List<String>.from(firstIncompleteExercise['instructions'] ?? [
+              '1. Follow the exercise instructions carefully.',
+              '2. Start slowly and increase intensity gradually.',
+              '3. Stop if you feel any pain.',
+              '4. Breathe normally throughout the exercise.',
+              '5. Repeat as recommended by your physical therapist.',
+            ]),
+            themeProvider: widget.themeProvider,
+            exerciseData: firstIncompleteExercise,
+            canComplete: true,
+          ),
+        ),
+      );
+
+      // Reload dashboard data if exercise was completed
+      if (result == true && mounted) {
+        await _loadDashboardData();
+      }
+    } catch (e) {
+      print('Error starting today\'s session: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error starting session: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
