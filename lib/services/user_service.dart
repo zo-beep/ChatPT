@@ -1,5 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
+import 'dart:math';
 
 class UserService {
   static String _currentUserName = 'Jane Doe';
@@ -165,5 +168,136 @@ class UserService {
   // Check if user has custom avatar
   static bool hasCustomAvatar() {
     return _customAvatar != null && _customAvatar!.isNotEmpty;
+  }
+
+  // Simple encryption/decryption for credentials (basic obfuscation)
+  static String _encrypt(String text) {
+    final random = Random(42); // Fixed seed for consistency
+    final encrypted = text.split('').map((char) {
+      return String.fromCharCode(char.codeUnitAt(0) + random.nextInt(10) + 1);
+    }).join('');
+    return encrypted;
+  }
+
+  static String _decrypt(String encrypted) {
+    final random = Random(42); // Same seed for decryption
+    final decrypted = encrypted.split('').map((char) {
+      return String.fromCharCode(char.codeUnitAt(0) - random.nextInt(10) - 1);
+    }).join('');
+    return decrypted;
+  }
+
+  // Remember me functionality using Firestore
+  static Future<void> saveRememberMeCredentials(String email, String password) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Encrypt credentials before storing
+        final encryptedEmail = _encrypt(email);
+        final encryptedPassword = _encrypt(password);
+        
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'rememberMe': true,
+          'rememberedEmail': encryptedEmail,
+          'rememberedPassword': encryptedPassword,
+          'rememberMeUpdatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      print('Error saving remember me credentials to Firestore: $e');
+      // Fallback to SharedPreferences if Firestore fails
+      final prefs = await _prefs;
+      await prefs.setString('remembered_email', email);
+      await prefs.setString('remembered_password', password);
+      await prefs.setBool('remember_me', true);
+    }
+  }
+
+  static Future<void> clearRememberMeCredentials() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'rememberMe': false,
+          'rememberedEmail': FieldValue.delete(),
+          'rememberedPassword': FieldValue.delete(),
+          'rememberMeUpdatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      print('Error clearing remember me credentials from Firestore: $e');
+      // Fallback to SharedPreferences
+      final prefs = await _prefs;
+      await prefs.remove('remembered_email');
+      await prefs.remove('remembered_password');
+      await prefs.setBool('remember_me', false);
+    }
+  }
+
+  static Future<Map<String, String?>> getRememberedCredentials() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        
+        if (doc.exists) {
+          final data = doc.data()!;
+          final rememberMe = data['rememberMe'] ?? false;
+          
+          if (rememberMe && data['rememberedEmail'] != null && data['rememberedPassword'] != null) {
+            // Decrypt credentials
+            final decryptedEmail = _decrypt(data['rememberedEmail']);
+            final decryptedPassword = _decrypt(data['rememberedPassword']);
+            
+            return {
+              'email': decryptedEmail,
+              'password': decryptedPassword,
+            };
+          }
+        }
+      }
+    } catch (e) {
+      print('Error getting remember me credentials from Firestore: $e');
+      // Fallback to SharedPreferences
+      final prefs = await _prefs;
+      final email = prefs.getString('remembered_email');
+      final password = prefs.getString('remembered_password');
+      return {'email': email, 'password': password};
+    }
+    
+    return {'email': null, 'password': null};
+  }
+
+  static Future<bool> isRememberMeEnabled() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        
+        if (doc.exists) {
+          final data = doc.data()!;
+          return data['rememberMe'] ?? false;
+        }
+      }
+    } catch (e) {
+      print('Error checking remember me status from Firestore: $e');
+      // Fallback to SharedPreferences
+      final prefs = await _prefs;
+      return prefs.getBool('remember_me') ?? false;
+    }
+    
+    return false;
   }
 }

@@ -6,6 +6,7 @@ import 'package:demo_app/main.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:demo_app/screens/doctor_dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // LOGIN SCREEN
 class LoginScreen extends StatefulWidget {
@@ -24,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _passwordErrorText;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -80,6 +82,16 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (credential.user != null) {
+        // Handle remember me functionality
+        if (_rememberMe) {
+          await UserService.saveRememberMeCredentials(
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+          );
+        } else {
+          await UserService.clearRememberMeCredentials();
+        }
+
         // Set user email in UserService
         await UserService.setUserEmail(_emailController.text.trim());
 
@@ -420,6 +432,33 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
+                          // Remember Me Checkbox
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _rememberMe,
+                                onChanged: _isLoading ? null : (value) {
+                                  setState(() {
+                                    _rememberMe = value ?? false;
+                                  });
+                                },
+                                activeColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Remember me',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: theme?.textColor ?? Colors.black87,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
                           // Forgot Password Link
                           Align(
                             alignment: Alignment.centerRight,
@@ -496,6 +535,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    _loadRememberedCredentials();
     _emailController.addListener(() {
       if (_emailErrorText != null) {
         setState(() {
@@ -510,5 +550,40 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     });
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    try {
+      // First try to load from SharedPreferences (fallback)
+      final prefs = await SharedPreferences.getInstance();
+      final rememberedEmail = prefs.getString('remembered_email');
+      final rememberedPassword = prefs.getString('remembered_password');
+      final rememberMeEnabled = prefs.getBool('remember_me') ?? false;
+      
+      if (rememberMeEnabled && rememberedEmail != null && rememberedPassword != null) {
+        setState(() {
+          _emailController.text = rememberedEmail;
+          _passwordController.text = rememberedPassword;
+          _rememberMe = true;
+        });
+        print('Loaded remembered credentials from SharedPreferences');
+      } else {
+        // Try to load from Firestore if user is already authenticated
+        final isRememberMeEnabled = await UserService.isRememberMeEnabled();
+        if (isRememberMeEnabled) {
+          final credentials = await UserService.getRememberedCredentials();
+          if (credentials['email'] != null && credentials['password'] != null) {
+            setState(() {
+              _emailController.text = credentials['email']!;
+              _passwordController.text = credentials['password']!;
+              _rememberMe = true;
+            });
+            print('Loaded remembered credentials from Firestore');
+          }
+        }
+      }
+    } catch (e) {
+      print('Error loading remembered credentials: $e');
+    }
   }
 }
