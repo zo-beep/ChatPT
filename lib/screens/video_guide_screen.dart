@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:demo_app/main.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -26,45 +27,136 @@ class VideoGuideScreen extends StatefulWidget {
 
 class _VideoGuideScreenState extends State<VideoGuideScreen> {
   VideoPlayerController? _controller;
+  YoutubePlayerController? _youtubeController;
   bool _isInitialized = false;
   bool _isPlaying = false;
+  bool _isYoutubeVideo = false;
+  String? _videoError;
 
   @override
   void initState() {
     super.initState();
-    _initializeVideo();
+    _validateAndInitializeVideo();
   }
 
-  Future<void> _initializeVideo() async {
+  void _handleError(String error) {
+    _onVideoError(error);
+  }
+
+  Future<void> _validateAndInitializeVideo() async {
     try {
-      final videoPath = widget.exerciseData?['videoUrl'] ?? 'assets/videos/mockvid.mp4';
-      _controller = VideoPlayerController.asset(videoPath);
-      await _controller!.initialize();
-      setState(() {
-        _isInitialized = true;
-      });
+      final videoUrl = widget.exerciseData?['videoUrl'];
+
+      // Handle asset video or empty URL
+      if (videoUrl == null || videoUrl.isEmpty) {
+        _controller = VideoPlayerController.asset('assets/videos/mockvid.mp4');
+        await _controller!.initialize();
+        setState(() {
+          _isInitialized = true;
+          _isYoutubeVideo = false;
+          _isPlaying = false;
+        });
+        return;
+      }
+
+      // Handle YouTube videos
+      if (videoUrl.contains('youtube.com') || videoUrl.contains('youtu.be')) {
+        final videoId = YoutubePlayer.convertUrlToId(videoUrl);
+        if (videoId != null) {
+          _youtubeController = YoutubePlayerController(
+            initialVideoId: videoId,
+            flags: const YoutubePlayerFlags(
+              autoPlay: false,
+              mute: false,
+              showLiveFullscreenButton: false,
+            ),
+          );
+          setState(() {
+            _isYoutubeVideo = true;
+            _isInitialized = true;
+          });
+        } else {
+          setState(() {
+            _videoError = 'Invalid YouTube URL format';
+          });
+        }
+        return;
+      }
+
+      // Handle regular video
+      try {
+        _controller = VideoPlayerController.network(videoUrl);
+        await _controller!.initialize();
+        setState(() {
+          _isInitialized = true;
+          _isYoutubeVideo = false;
+        });
+      } catch (e) {
+        setState(() {
+          _videoError = 'Error loading video: $e';
+          _isYoutubeVideo = false;
+        });
+      }
     } catch (e) {
-      print('Error initializing video: $e');
+      setState(() {
+        _videoError = 'Error initializing video: $e';
+        _isYoutubeVideo = false;
+      });
     }
+  }
+
+
+
+  void _onVideoError(String error) {
+    if (!mounted) return;
+    setState(() => _videoError = error);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   void dispose() {
     _controller?.dispose();
+    _youtubeController?.dispose();
     super.dispose();
   }
 
-  void _togglePlayPause() {
+  @override
+  void deactivate() {
+    if (_isYoutubeVideo) {
+      _youtubeController?.pause();
+    } else {
+      _controller?.pause();
+    }
+    super.deactivate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isYoutubeVideo && _youtubeController != null) {
+      // This helps with initialization on web
+      setState(() {});
+    }
+  }
+
+  Future<void> _togglePlayPause() async {
     if (_controller != null && _isInitialized) {
-      setState(() {
+      try {
         if (_controller!.value.isPlaying) {
-          _controller!.pause();
-          _isPlaying = false;
+          await _controller!.pause();
+          setState(() => _isPlaying = false);
         } else {
-          _controller!.play();
-          _isPlaying = true;
+          await _controller!.play();
+          setState(() => _isPlaying = true);
         }
-      });
+      } catch (e) {
+        _onVideoError('Error controlling playback: ${e.toString()}');
+      }
     }
   }
 
@@ -172,64 +264,7 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
                       color: theme?.secondaryColor ?? Colors.grey[200],
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: _isInitialized && _controller != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Stack(
-                              children: [
-                                SizedBox.expand(
-                                  child: FittedBox(
-                                    fit: BoxFit.cover,
-                                    child: SizedBox(
-                                      width: width,
-                                      height: height,
-                                      child: VideoPlayer(_controller!),
-                                    ),
-                                  ),
-                                ),
-                                Center(
-                                  child: GestureDetector(
-                                    onTap: _togglePlayPause,
-                                    child: Container(
-                                      width: 70,
-                                      height: 70,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.5),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        _isPlaying ? Icons.pause : Icons.play_arrow,
-                                        size: 40,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : Center(
-                            child: Container(
-                              width: 70,
-                              height: 70,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.play_arrow,
-                                size: 40,
-                                color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                              ),
-                            ),
-                             ),
+                    child: _buildVideoPlayer(width, height, theme),
                   );
                 },
               ),
@@ -326,4 +361,119 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
       ),
     );
   }
+
+  Widget _buildVideoPlayer(double width, double height, ThemeProvider? theme) {
+    // Show error state if there's an error
+    if (_videoError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: theme?.subtextColor ?? Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _videoError!,
+              style: TextStyle(
+                color: theme?.subtextColor ?? Colors.grey,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show loading state while video is initializing
+    if (!_isInitialized) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+        ),
+      );
+    }
+
+    // Show YouTube player if it's a YouTube video
+    if (_isYoutubeVideo && _youtubeController != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: YoutubePlayer(
+          controller: _youtubeController!,
+          showVideoProgressIndicator: true,
+          progressIndicatorColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+          progressColors: ProgressBarColors(
+            playedColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+            handleColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+          ),
+        ),
+      );
+    }
+
+    // Show video player for local or direct URL videos
+    if (_controller != null && _controller!.value.isInitialized) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: width,
+                  height: height,
+                  child: VideoPlayer(_controller!),
+                ),
+              ),
+            ),
+            Center(
+              child: GestureDetector(
+                onTap: _togglePlayPause,
+                child: Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                    size: 40,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Fallback for no video
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.video_library_outlined,
+            size: 48,
+            color: theme?.subtextColor ?? Colors.grey,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No video available',
+            style: TextStyle(
+              color: theme?.subtextColor ?? Colors.grey,
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
 }
