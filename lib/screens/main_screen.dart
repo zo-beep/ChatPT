@@ -6,6 +6,7 @@ import 'package:demo_app/screens/chatbot_screen.dart';
 import 'package:demo_app/screens/patient_dashboard_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; 
 
 // MAIN SCREEN WITH BOTTOM NAVIGATION
 class MainScreen extends StatefulWidget {
@@ -19,6 +20,14 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  late final String patientId;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentUser = FirebaseAuth.instance.currentUser;
+    patientId = currentUser?.uid ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +38,8 @@ class _MainScreenState extends State<MainScreen> {
           HomeScreen(themeProvider: widget.themeProvider),
           ChatBotScreen(themeProvider: widget.themeProvider),
           ExerciseScreen(themeProvider: widget.themeProvider),
-          ProgressScreen(themeProvider: widget.themeProvider),
+          ProgressScreen(
+              themeProvider: widget.themeProvider, patientId: patientId),
           MoreScreen(themeProvider: widget.themeProvider),
         ];
 
@@ -48,7 +58,8 @@ class _MainScreenState extends State<MainScreen> {
             ),
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
@@ -84,7 +95,8 @@ class _MainScreenState extends State<MainScreen> {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: widget.themeProvider.primaryColor.withOpacity(0.5),
+                    color:
+                        widget.themeProvider.primaryColor.withOpacity(0.5),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -102,7 +114,9 @@ class _MainScreenState extends State<MainScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? widget.themeProvider.primaryColor : widget.themeProvider.subtextColor,
+              color: isSelected
+                  ? widget.themeProvider.primaryColor
+                  : widget.themeProvider.subtextColor,
               size: 26,
             ),
             const SizedBox(height: 4),
@@ -110,8 +124,11 @@ class _MainScreenState extends State<MainScreen> {
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: isSelected ? widget.themeProvider.primaryColor : widget.themeProvider.subtextColor,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected
+                    ? widget.themeProvider.primaryColor
+                    : widget.themeProvider.subtextColor,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -135,15 +152,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic> _dashboardData = {};
   List<Map<String, dynamic>> _recentActivities = [];
   bool _isLoading = true;
+  late final String patientId; 
 
   @override
   void initState() {
     super.initState();
+    final currentUser = FirebaseAuth.instance.currentUser;
+    patientId = currentUser?.uid ?? '';
     _loadDashboardData();
   }
 
   Future<void> _loadDashboardData() async {
-    // Load mock dashboard data
     setState(() {
       _dashboardData = {
         'daysActive': 7,
@@ -196,7 +215,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
                                   'ChatPT',
@@ -211,7 +231,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => PatientDashboardScreen(themeProvider: widget.themeProvider),
+                                        builder: (context) =>
+                                            PatientDashboardScreen(
+                                          themeProvider:
+                                              widget.themeProvider,
+                                        ),
                                       ),
                                     );
                                   },
@@ -220,13 +244,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                     height: 40,
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius:
+                                          BorderRadius.circular(12),
                                     ),
                                     child: Center(
                                       child: Text(
                                         _getUserInitial(),
                                         style: TextStyle(
-                                          color: widget.themeProvider.primaryColor,
+                                          color:
+                                              widget.themeProvider.primaryColor,
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -255,7 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   padding: const EdgeInsets.all(24),
                                   decoration: BoxDecoration(
                                     color: widget.themeProvider.cardColor,
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius:
+                                        BorderRadius.circular(16),
                                   ),
                                   child: Column(
                                     children: [
@@ -264,7 +291,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         style: TextStyle(
                                           fontSize: 48,
                                           fontWeight: FontWeight.bold,
-                                          color: widget.themeProvider.primaryColor,
+                                          color: widget
+                                              .themeProvider.primaryColor,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -272,7 +300,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         'days active',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color: widget.themeProvider.subtextColor,
+                                          color: widget
+                                              .themeProvider.subtextColor,
                                         ),
                                       ),
                                     ],
@@ -285,7 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   padding: const EdgeInsets.all(24),
                                   decoration: BoxDecoration(
                                     color: widget.themeProvider.cardColor,
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius:
+                                        BorderRadius.circular(16),
                                   ),
                                   child: Column(
                                     children: [
@@ -294,7 +324,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         style: TextStyle(
                                           fontSize: 48,
                                           fontWeight: FontWeight.bold,
-                                          color: widget.themeProvider.primaryColor,
+                                          color: widget
+                                              .themeProvider.primaryColor,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -302,7 +333,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         'progress',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color: widget.themeProvider.subtextColor,
+                                          color: widget
+                                              .themeProvider.subtextColor,
                                         ),
                                       ),
                                     ],
@@ -312,23 +344,28 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                           const SizedBox(height: 20),
+
                           // Buttons
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () {
-                                // Navigate to exercise screen to start session
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => ExerciseScreen(themeProvider: widget.themeProvider),
+                                    builder: (context) =>
+                                        ExerciseScreen(
+                                            themeProvider:
+                                                widget.themeProvider),
                                   ),
                                 );
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: widget.themeProvider.primaryColor,
+                                backgroundColor:
+                                    widget.themeProvider.primaryColor,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -344,18 +381,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
+
+                          // View Plan
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton(
                               onPressed: () {
                                 Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => ExerciseScreen(themeProvider: widget.themeProvider,)),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ExerciseScreen(
+                                        themeProvider:
+                                            widget.themeProvider),
+                                  ),
                                 );
                               },
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: widget.themeProvider.primaryColor,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                foregroundColor:
+                                    widget.themeProvider.primaryColor,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -373,24 +418,33 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
+
                           const SizedBox(height: 24),
+
                           // Recent Activity
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Recent Activity',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: widget.themeProvider.textColor,
+                                  color:
+                                      widget.themeProvider.textColor,
                                 ),
                               ),
                               TextButton(
                                 onPressed: () {
                                   Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => ProgressScreen(themeProvider: widget.themeProvider,)),
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ProgressScreen(
+                                          themeProvider:
+                                              widget.themeProvider,
+                                          patientId: patientId),
+                                    ),
                                   );
                                 },
                                 child: Row(
@@ -398,7 +452,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Text(
                                       'See progress',
                                       style: TextStyle(
-                                        color: widget.themeProvider.primaryColor,
+                                        color: widget
+                                            .themeProvider.primaryColor,
                                         fontSize: 14,
                                       ),
                                     ),
@@ -406,7 +461,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Icon(
                                       Icons.arrow_forward,
                                       size: 16,
-                                      color: widget.themeProvider.primaryColor,
+                                      color: widget
+                                          .themeProvider.primaryColor,
                                     ),
                                   ],
                                 ),
@@ -418,76 +474,66 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: widget.themeProvider.cardColor,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius:
+                                  BorderRadius.circular(12),
                             ),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: _recentActivities.isEmpty
                                   ? [
                                       Text(
-                                        'Lateral Pendulum - 5 minutes',
+                                        'No recent activities yet.',
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
-                                          color: widget.themeProvider.textColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '2 hours ago',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: widget.themeProvider.subtextColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Basic Hamstring Stretch - 5 minutes',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: widget.themeProvider.textColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '2 hours ago',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: widget.themeProvider.subtextColor,
+                                          color: widget
+                                              .themeProvider.textColor,
                                         ),
                                       ),
                                     ]
-                                  : _recentActivities.map((activity) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${activity['exerciseName']} - ${activity['duration']} minutes',
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                              color: widget.themeProvider.textColor,
+                                  : _recentActivities
+                                      .map((activity) => Padding(
+                                            padding:
+                                                const EdgeInsets.only(
+                                                    bottom: 16),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${activity['exerciseName']} - ${activity['duration']} minutes',
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                    color: widget
+                                                        .themeProvider
+                                                        .textColor,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _formatTimestamp(
+                                                      activity[
+                                                          'completedAt']),
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: widget
+                                                        .themeProvider
+                                                        .subtextColor,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _formatTimestamp(activity['completedAt']),
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: widget.themeProvider.subtextColor,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )).toList(),
+                                          ))
+                                      .toList(),
                             ),
                           ),
-                  ],
-                ),
-              ),
-            ),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
         );
       },
