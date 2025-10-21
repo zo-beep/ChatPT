@@ -21,7 +21,16 @@ class _ProgressScreenState extends State<ProgressScreen>
     with TickerProviderStateMixin {
   String _selectedTimeRange = 'Weekly';
   final List<String> _timeRanges = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+  
+  // Expansion states for activity sections
+  final Map<String, bool> _expandedSections = {
+    'Today': true,
+    'This Week': false,
+    'Earlier': false,
+  };
 
+  // Animation controllers for sections
+  final Map<String, AnimationController> _sectionControllers = {};
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -32,6 +41,16 @@ class _ProgressScreenState extends State<ProgressScreen>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    
+    // Initialize section animation controllers
+    for (final section in _expandedSections.keys) {
+      _sectionControllers[section] = AnimationController(
+        duration: const Duration(milliseconds: 200),
+        vsync: this,
+        value: section == 'Today' ? 1.0 : 0.0, // Today section starts expanded
+      );
+    }
+    
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut));
   }
@@ -39,6 +58,9 @@ class _ProgressScreenState extends State<ProgressScreen>
   @override
   void dispose() {
     _fadeController.dispose();
+    for (final controller in _sectionControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -390,64 +412,142 @@ class _ProgressScreenState extends State<ProgressScreen>
   }
 
   Widget _buildRecentActivity(List<Map<String, dynamic>> userProgress) {
+    if (userProgress.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent Activity',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: widget.themeProvider.textColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: widget.themeProvider.cardColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                'No completed exercises yet.',
+                style: TextStyle(
+                  color: widget.themeProvider.subtextColor,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final groupedActivities = _groupActivitiesBySection(userProgress);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Recent Activity',
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: widget.themeProvider.textColor)),
+        Text(
+          'Recent Activity',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: widget.themeProvider.textColor,
+          ),
+        ),
         const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-              color: widget.themeProvider.cardColor,
-              borderRadius: BorderRadius.circular(12)),
-          child: userProgress.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Center(
-                    child: Text('No completed exercises yet.',
-                        style: TextStyle(
-                            color: widget.themeProvider.subtextColor,
-                            fontStyle: FontStyle.italic)),
-                  ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: userProgress.length,
-                  itemBuilder: (context, index) {
-                    final activity = userProgress[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      elevation: 2,
-                      color: widget.themeProvider.backgroundColor,
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: widget.themeProvider.primaryColor,
-                          child: const Icon(Icons.fitness_center,
-                              color: Colors.white, size: 20),
-                        ),
-                        title: Text(
-                          activity['exerciseName'] ?? 'Unknown Exercise',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: widget.themeProvider.textColor),
-                        ),
-                        subtitle: Text(
-                          '${activity['duration']} minutes • ${_formatTimestamp(activity['completedAt'])}',
-                          style:
-                              TextStyle(color: widget.themeProvider.subtextColor),
-                        ),
+            color: widget.themeProvider.cardColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: groupedActivities.entries.map((entry) {
+              final section = entry.key;
+              final activities = entry.value;
+              
+              if (activities.isEmpty) return const SizedBox.shrink();
+
+              return Column(
+                children: [
+                  // Section Header with Dropdown
+                  InkWell(
+                    onTap: () => _toggleSection(section),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Text(
+                            section,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: widget.themeProvider.textColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          AnimatedBuilder(
+                            animation: _sectionControllers[section]!,
+                            builder: (context, child) => Transform.rotate(
+                              angle: _sectionControllers[section]!.value * 3.14159,
+                              child: Icon(
+                                Icons.keyboard_arrow_down,
+                                color: widget.themeProvider.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                  // Animated List Container
+                  SizeTransition(
+                    sizeFactor: _sectionControllers[section]!,
+                    child: Column(
+                      children: activities.map((activity) => Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 2,
+                        color: widget.themeProvider.backgroundColor,
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: widget.themeProvider.primaryColor,
+                            child: const Icon(
+                              Icons.fitness_center,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            activity['exerciseName'] ?? 'Unknown Exercise',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: widget.themeProvider.textColor,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${activity['duration']} minutes • ${_formatTimestamp(activity['completedAt'])}',
+                            style: TextStyle(
+                              color: widget.themeProvider.subtextColor,
+                            ),
+                          ),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                  if (section != 'Earlier') const Divider(height: 1),
+                ],
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
@@ -501,5 +601,43 @@ class _ProgressScreenState extends State<ProgressScreen>
     if (difference.inHours < 1) return '${difference.inMinutes} min ago';
     if (difference.inDays < 1) return '${difference.inHours} hr ago';
     return '${difference.inDays} days ago';
+  }
+
+  Map<String, List<Map<String, dynamic>>> _groupActivitiesBySection(List<Map<String, dynamic>> activities) {
+    final now = DateTime.now();
+    final Map<String, List<Map<String, dynamic>>> sections = {
+      'Today': [],
+      'This Week': [],
+      'Earlier': [],
+    };
+
+    for (final activity in activities) {
+      final completedAt = activity['completedAt'] as DateTime?;
+      if (completedAt == null) continue;
+
+      final difference = now.difference(completedAt);
+      
+      if (difference.inDays == 0) {
+        sections['Today']!.add(activity);
+      } else if (difference.inDays < 7) {
+        sections['This Week']!.add(activity);
+      } else {
+        sections['Earlier']!.add(activity);
+      }
+    }
+
+    return sections;
+  }
+
+  void _toggleSection(String section) {
+    setState(() {
+      _expandedSections[section] = !(_expandedSections[section] ?? false);
+    });
+    
+    if (_expandedSections[section] ?? false) {
+      _sectionControllers[section]?.forward();
+    } else {
+      _sectionControllers[section]?.reverse();
+    }
   }
 }

@@ -6,7 +6,8 @@ import 'package:demo_app/screens/chatbot_screen.dart';
 import 'package:demo_app/screens/patient_dashboard_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; 
 
 // MAIN SCREEN WITH BOTTOM NAVIGATION
 class MainScreen extends StatefulWidget {
@@ -162,29 +163,75 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadDashboardData();
   }
 
+  int _durationToInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is num) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? double.tryParse(value)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
   Future<void> _loadDashboardData() async {
-    setState(() {
-      _dashboardData = {
-        'daysActive': 7,
-        'progressPercentage': 25,
-        'totalMinutes': 236,
-      };
-      _recentActivities = [
-        {
-          'exerciseName': 'Lateral Pendulum',
-          'duration': 5,
-          'completedAt': DateTime.now().subtract(const Duration(hours: 2)),
-          'status': 'completed',
-        },
-        {
-          'exerciseName': 'Basic Hamstring Stretch',
-          'duration': 5,
-          'completedAt': DateTime.now().subtract(const Duration(hours: 2)),
-          'status': 'completed',
-        },
-      ];
-      _isLoading = false;
-    });
+    setState(() => _isLoading = true);
+    try {
+      // Get assigned exercises
+      final assignedSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .collection('assignedExercises')
+          .get();
+
+      final allAssigned = assignedSnap.docs
+          .map((d) => d.data())
+          .toList();
+
+      final int totalExercises = allAssigned.length;
+      final int completedAssignedCount =
+          allAssigned.where((a) => a['completed'] == true).length;
+      final int progressPercentage = totalExercises > 0
+          ? ((completedAssignedCount / totalExercises) * 100).round()
+          : 0;
+
+      // Get exercise history
+      final historySnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .collection('exerciseHistory')
+          .orderBy('completedAt', descending: true)
+          .limit(3) // Only get the 3 most recent activities
+          .get();
+
+      final historyList = historySnap.docs.map((d) {
+        final data = d.data();
+        final ca = data['completedAt'];
+        final completedAt =
+            (ca is Timestamp) ? ca.toDate() : (ca is DateTime ? ca : null);
+        return {
+          ...data,
+          'completedAt': completedAt,
+          'duration': _durationToInt(data['duration']),
+        };
+      }).toList();
+
+      final totalMinutes = historyList.fold<int>(
+          0, (sum, h) => sum + _durationToInt(h['duration']));
+
+      setState(() {
+        _dashboardData = {
+          'daysActive': historyList.isNotEmpty ? 1 : 0,
+          'progressPercentage': progressPercentage,
+          'totalMinutes': totalMinutes,
+        };
+        _recentActivities = historyList;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading dashboard data: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -474,60 +521,61 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: widget.themeProvider.cardColor,
-                              borderRadius:
-                                  BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: _recentActivities.isEmpty
                                   ? [
-                                      Text(
-                                        'No recent activities yet.',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: widget
-                                              .themeProvider.textColor,
-                                        ),
-                                      ),
-                                    ]
-                                  : _recentActivities
-                                      .map((activity) => Padding(
-                                            padding:
-                                                const EdgeInsets.only(
-                                                    bottom: 16),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  '${activity['exerciseName']} - ${activity['duration']} minutes',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight:
-                                                        FontWeight.w600,
-                                                    color: widget
-                                                        .themeProvider
-                                                        .textColor,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  _formatTimestamp(
-                                                      activity[
-                                                          'completedAt']),
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: widget
-                                                        .themeProvider
-                                                        .subtextColor,
-                                                  ),
-                                                ),
-                                              ],
+                                      Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Center(
+                                          child: Text(
+                                            'No completed exercises yet.',
+                                            style: TextStyle(
+                                              color: widget.themeProvider.subtextColor,
+                                              fontStyle: FontStyle.italic,
                                             ),
-                                          ))
-                                      .toList(),
+                                          ),
+                                        ),
+                                      )
+                                    ]
+                                  : _recentActivities.map((activity) {
+                                      return Card(
+                                        margin: const EdgeInsets.symmetric(
+                                          vertical: 6,
+                                          horizontal: 4,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        elevation: 2,
+                                        color: widget.themeProvider.backgroundColor,
+                                        child: ListTile(
+                                          leading: CircleAvatar(
+                                            backgroundColor: widget.themeProvider.primaryColor,
+                                            child: const Icon(
+                                              Icons.fitness_center,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          title: Text(
+                                            activity['exerciseName'] ?? 'Unknown Exercise',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: widget.themeProvider.textColor,
+                                            ),
+                                          ),
+                                          subtitle: Text(
+                                            '${activity['duration']} minutes • ${_formatTimestamp(activity['completedAt'])}',
+                                            style: TextStyle(
+                                              color: widget.themeProvider.subtextColor,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
                             ),
                           ),
                         ],
