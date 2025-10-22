@@ -73,3 +73,221 @@ exports.onExerciseHistory = functions.firestore
     await batch.commit();
     return null;
   });
+
+// Send push notification to user
+exports.sendNotification = functions.https.onCall(async (data, context) => {
+  try {
+    const { recipientId, title, message, type, additionalData } = data;
+    
+    // Validate required fields
+    if (!recipientId || !title || !message) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
+    }
+
+    // Get user's FCM token
+    const userDoc = await db.collection('users').doc(recipientId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const userData = userDoc.data();
+    const fcmToken = userData.fcmToken;
+
+    if (!fcmToken) {
+      throw new functions.https.HttpsError('failed-precondition', 'User has no FCM token');
+    }
+
+    // Create notification document in Firestore
+    const notificationData = {
+      title,
+      message,
+      type: type || 'general',
+      recipient_id: recipientId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      status: 'unread',
+      additionalData: additionalData || {},
+    };
+
+    const notificationRef = await db.collection('notifications').add(notificationData);
+
+    // Send FCM message
+    const payload = {
+      notification: {
+        title,
+        body: message,
+      },
+      data: {
+        type: type || 'general',
+        notificationId: notificationRef.id,
+        ...additionalData,
+      },
+      token: fcmToken,
+    };
+
+    const response = await admin.messaging().send(payload);
+    console.log('Successfully sent message:', response);
+
+    return { success: true, notificationId: notificationRef.id };
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to send notification');
+  }
+});
+
+// Send notification to multiple users
+exports.sendNotificationToMultiple = functions.https.onCall(async (data, context) => {
+  try {
+    const { recipientIds, title, message, type, additionalData } = data;
+    
+    // Validate required fields
+    if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'recipientIds must be a non-empty array');
+    }
+    
+    if (!title || !message) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
+    }
+
+    const results = [];
+    
+    for (const recipientId of recipientIds) {
+      try {
+        // Get user's FCM token
+        const userDoc = await db.collection('users').doc(recipientId).get();
+        if (!userDoc.exists) {
+          results.push({ recipientId, success: false, error: 'User not found' });
+          continue;
+        }
+
+        const userData = userDoc.data();
+        const fcmToken = userData.fcmToken;
+
+        if (!fcmToken) {
+          results.push({ recipientId, success: false, error: 'No FCM token' });
+          continue;
+        }
+
+        // Create notification document in Firestore
+        const notificationData = {
+          title,
+          message,
+          type: type || 'general',
+          recipient_id: recipientId,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          status: 'unread',
+          additionalData: additionalData || {},
+        };
+
+        const notificationRef = await db.collection('notifications').add(notificationData);
+
+        // Send FCM message
+        const payload = {
+          notification: {
+            title,
+            body: message,
+          },
+          data: {
+            type: type || 'general',
+            notificationId: notificationRef.id,
+            ...additionalData,
+          },
+          token: fcmToken,
+        };
+
+        await admin.messaging().send(payload);
+        results.push({ recipientId, success: true, notificationId: notificationRef.id });
+      } catch (error) {
+        console.error(`Error sending notification to ${recipientId}:`, error);
+        results.push({ recipientId, success: false, error: error.message });
+      }
+    }
+
+    return { results };
+  } catch (error) {
+    console.error('Error sending notifications:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to send notifications');
+  }
+});
+
+// Send reminder notifications (can be triggered by scheduled functions)
+exports.sendReminderNotifications = functions.https.onCall(async (data, context) => {
+  try {
+    const { userId, exerciseName, reminderType } = data;
+    
+    if (!userId) {
+      throw new functions.https.HttpsError('invalid-argument', 'userId is required');
+    }
+
+    // Get user's FCM token
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const userData = userDoc.data();
+    const fcmToken = userData.fcmToken;
+
+    if (!fcmToken) {
+      throw new functions.https.HttpsError('failed-precondition', 'User has no FCM token');
+    }
+
+    let title, message;
+    
+    switch (reminderType) {
+      case 'exercise':
+        title = 'Exercise Reminder';
+        message = `Don't forget to complete your exercise: ${exerciseName || 'Today\'s exercises'}`;
+        break;
+      case 'daily':
+        title = 'Daily Reminder';
+        message = 'Time for your daily physical therapy session!';
+        break;
+      case 'weekly':
+        title = 'Weekly Progress';
+        message = 'Check your weekly progress and continue your therapy journey!';
+        break;
+      default:
+        title = 'Reminder';
+        message = 'Don\'t forget about your physical therapy routine!';
+    }
+
+    // Create notification document in Firestore
+    const notificationData = {
+      title,
+      message,
+      type: 'reminder',
+      recipient_id: userId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      status: 'unread',
+      additionalData: {
+        reminderType,
+        exerciseName: exerciseName || '',
+      },
+    };
+
+    const notificationRef = await db.collection('notifications').add(notificationData);
+
+    // Send FCM message
+    const payload = {
+      notification: {
+        title,
+        body: message,
+      },
+      data: {
+        type: 'reminder',
+        notificationId: notificationRef.id,
+        reminderType,
+        exerciseName: exerciseName || '',
+      },
+      token: fcmToken,
+    };
+
+    const response = await admin.messaging().send(payload);
+    console.log('Successfully sent reminder:', response);
+
+    return { success: true, notificationId: notificationRef.id };
+  } catch (error) {
+    console.error('Error sending reminder notification:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to send reminder notification');
+  }
+});

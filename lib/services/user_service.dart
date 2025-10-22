@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:demo_app/services/notification_service.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -153,6 +154,18 @@ class UserService {
   static Future<void> setUserRole(String role) async {
     _userProfile['role'] = role;
     await _saveUserData();
+  }
+
+  // Update FCM token for current user
+  static Future<void> updateFCMTokenForCurrentUser() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await NotificationService.updateFCMTokenForUser(user.uid);
+      }
+    } catch (e) {
+      print('Error updating FCM token for current user: $e');
+    }
   }
 
   // Get user email

@@ -5,6 +5,7 @@ import 'package:demo_app/screens/about_screen.dart';
 import 'package:demo_app/screens/terms_conditions_screen.dart';
 import 'package:demo_app/screens/help_support_screen.dart';
 import 'package:demo_app/screens/reminders_screen.dart';
+import 'package:demo_app/screens/notification_settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:demo_app/screens/doctor_dashboard_screen.dart';
 import 'package:demo_app/screens/admin_dashboard_screen.dart';
@@ -104,6 +105,19 @@ class _MoreScreenState extends State<MoreScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => RemindersScreen(themeProvider: themeProvider),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMenuItem(
+                      'Notification Settings',
+                      Icons.arrow_forward_ios,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NotificationSettingsScreen(themeProvider: themeProvider),
                           ),
                         );
                       },

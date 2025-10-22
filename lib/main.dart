@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:demo_app/firebase_options.dart';
 import 'package:demo_app/screens/start_screen.dart';
 import 'package:demo_app/screens/login_screen.dart';
 import 'package:demo_app/screens/register_screen.dart';
 import 'package:demo_app/screens/main_screen.dart';
 import 'package:demo_app/services/user_service.dart';
+import 'package:demo_app/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,10 +17,26 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   // Initialize UserService and load saved data
   await UserService.loadUserData();
 
+  // Initialize FCM and request notification permissions
+  await NotificationService.initialize();
+
   runApp(const ChatPTApp());
+}
+
+// Background message handler (must be top-level function)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('Handling a background message: ${message.messageId}');
+  print('Message data: ${message.data}');
+  
+  // Handle background notification processing here
+  // This function runs when the app is in the background
 }
 
 // Theme Notifier for global theme management

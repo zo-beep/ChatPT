@@ -5,7 +5,9 @@ import 'package:demo_app/screens/progress_screen.dart';
 import 'package:demo_app/screens/chatbot_screen.dart';
 import 'package:demo_app/screens/patient_dashboard_screen.dart';
 import 'package:demo_app/screens/video_guide_screen.dart';
+import 'package:demo_app/screens/notifications_screen.dart';
 import 'package:demo_app/services/user_service.dart';
+import 'package:demo_app/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
@@ -274,39 +276,106 @@ class _HomeScreenState extends State<HomeScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            PatientDashboardScreen(
-                                          themeProvider:
-                                              widget.themeProvider,
+                                Row(
+                                  children: [
+                                    // Notification Icon with Badge
+                                    StreamBuilder<int>(
+                                      stream: NotificationService.getUnreadNotificationCount(patientId),
+                                      builder: (context, snapshot) {
+                                        final unreadCount = snapshot.data ?? 0;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => NotificationsScreen(
+                                                  themeProvider: widget.themeProvider,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: Stack(
+                                            children: [
+                                              Container(
+                                                width: 40,
+                                                height: 40,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white.withOpacity(0.2),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.notifications_outlined,
+                                                  color: Colors.white,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                              if (unreadCount > 0)
+                                                Positioned(
+                                                  right: 0,
+                                                  top: 0,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(4),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.red,
+                                                      borderRadius: BorderRadius.circular(10),
+                                                    ),
+                                                    constraints: const BoxConstraints(
+                                                      minWidth: 20,
+                                                      minHeight: 20,
+                                                    ),
+                                                    child: Text(
+                                                      unreadCount > 99 ? '99+' : unreadCount.toString(),
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                      textAlign: TextAlign.center,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Profile Icon
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                PatientDashboardScreen(
+                                              themeProvider:
+                                                  widget.themeProvider,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            _getUserInitial(),
+                                            style: TextStyle(
+                                              color:
+                                                  widget.themeProvider.primaryColor,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    );
-                                  },
-                                  child: Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius:
-                                          BorderRadius.circular(12),
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        _getUserInitial(),
-                                        style: TextStyle(
-                                          color:
-                                              widget.themeProvider.primaryColor,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),

@@ -95,6 +95,9 @@ class _LoginScreenState extends State<LoginScreen> {
         // Set user email in UserService
         await UserService.setUserEmail(_emailController.text.trim());
 
+        // Update FCM token for the logged-in user
+        await UserService.updateFCMTokenForCurrentUser();
+
         // Try to fetch role from Firestore
         try {
           final docRef = FirebaseFirestore.instance.collection('users').doc(credential.user!.uid);
