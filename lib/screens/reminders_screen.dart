@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/widgets/action_button.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RemindersScreen extends StatefulWidget {
   final ThemeProvider themeProvider;
@@ -22,105 +24,191 @@ class _RemindersScreenState extends State<RemindersScreen> {
     _loadReminders();
   }
 
-  void _loadReminders() {
-    final initialReminders = [
-      {
-        'id': 1,
-        'title': 'Morning Exercise Routine',
-        'schedule': 'Daily at 8:00 AM',
-        'time': '8:00 AM',
-        'isCompleted': false,
-        'priority': 'High',
-        'source': 'doctor',
-      },
-      {
-        'id': 2,
-        'title': 'Physical Therapy Session',
-        'schedule': 'Monday, Wednesday, Friday at 2:00 PM',
-        'time': '2:00 PM',
-        'isCompleted': false,
-        'priority': 'High',
-        'source': 'doctor',
-      },
-      {
-        'id': 3,
-        'title': 'Medication Reminder',
-        'schedule': 'Twice daily - 9:00 AM & 6:00 PM',
-        'time': '9:00 AM',
-        'isCompleted': false,
-        'priority': 'Medium',
-        'source': 'doctor',
-      },
-      {
-        'id': 4,
-        'title': 'Doctor Appointment',
-        'schedule': 'Next Friday at 10:30 AM',
-        'time': '10:30 AM',
-        'isCompleted': false,
-        'priority': 'High',
-        'source': 'doctor',
-      },
-      {
-        'id': 5,
-        'title': 'Personal Water Break',
-        'schedule': 'Every hour',
-        'time': 'Every hour',
-        'isCompleted': false,
-        'priority': 'Low',
-        'source': 'user',
-      },
-    ];
+  Future<void> _loadReminders() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final snap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('reminders')
+            .orderBy('scheduledTime', descending: false)
+            .get();
 
-    setState(() {
-      _reminders = List<Map<String, Object?>>.from(
-        initialReminders.map((m) => Map<String, Object?>.from(m)),
-      );
-      _selectedReminders = List<bool>.filled(_reminders.length, false);
-    });
+        final reminders = snap.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'title': data['title'] ?? '',
+            'schedule': data['schedule'] ?? '',
+            'time': data['time'] ?? '',
+            'isCompleted': data['isCompleted'] ?? false,
+            'priority': data['priority'] ?? 'Medium',
+            'source': data['source'] ?? 'user',
+            'createdAt': data['createdAt'],
+            'scheduledTime': data['scheduledTime'],
+          };
+        }).toList();
+
+        // Sort by scheduled time (earliest first)
+        reminders.sort((a, b) {
+          final timeA = a['scheduledTime'] as Timestamp?;
+          final timeB = b['scheduledTime'] as Timestamp?;
+          if (timeA == null && timeB == null) return 0;
+          if (timeA == null) return 1;
+          if (timeB == null) return -1;
+          return timeA.compareTo(timeB);
+        });
+
+        setState(() {
+          _reminders = reminders;
+          _selectedReminders = List<bool>.filled(_reminders.length, false);
+        });
+      }
+    } catch (e) {
+      print('Error loading reminders: $e');
+      // Show empty state if no reminders are found
+      setState(() {
+        _reminders = [];
+        _selectedReminders = [];
+      });
+    }
   }
 
-  void _addCustomReminder(String title, String schedule, String priority) {
-    final newReminder = {
-      'id': DateTime.now().millisecondsSinceEpoch,
-      'title': title,
-      'schedule': schedule,
-      'time': schedule,
-      'isCompleted': false,
-      'priority': priority,
-      'source': 'custom',
-    };
+  Future<void> _createTodaysSessionReminder() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Check if today's session reminder already exists
+        final existingReminder = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('reminders')
+            .where('title', isEqualTo: "Today's Session")
+            .where('source', isEqualTo: 'system')
+            .get();
 
-    setState(() {
-      _reminders = List<Map<String, Object?>>.from(_reminders);
-      _selectedReminders = List<bool>.from(_selectedReminders);
-      _reminders.insert(0, Map<String, Object?>.from(newReminder));
-      _selectedReminders.insert(0, false);
-    });
+        if (existingReminder.docs.isEmpty) {
+          // Create today's session reminder
+          final now = DateTime.now();
+          final scheduledTime = DateTime(now.year, now.month, now.day, 8, 0); // 8:00 AM today
+          
+          final reminderData = {
+            'title': "Today's Session",
+            'schedule': 'Complete your assigned exercises',
+            'time': '8:00 AM',
+            'isCompleted': false,
+            'priority': 'High',
+            'source': 'system',
+            'createdAt': FieldValue.serverTimestamp(),
+            'scheduledTime': Timestamp.fromDate(scheduledTime),
+          };
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('reminders')
+              .add(reminderData);
+
+          // Reload reminders to show the new one
+          await _loadReminders();
+        }
+      }
+    } catch (e) {
+      print('Error creating today\'s session reminder: $e');
+    }
+  }
+
+  Future<void> _addCustomReminder(String title, String schedule, String priority) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final reminderData = {
+          'title': title,
+          'schedule': schedule,
+          'time': schedule,
+          'isCompleted': false,
+          'priority': priority,
+          'source': 'custom',
+          'createdAt': FieldValue.serverTimestamp(),
+          'scheduledTime': FieldValue.serverTimestamp(),
+        };
+
+        final docRef = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('reminders')
+            .add(reminderData);
+
+        // Add to local state
+        final newReminder = {
+          'id': docRef.id,
+          'title': title,
+          'schedule': schedule,
+          'time': schedule,
+          'isCompleted': false,
+          'priority': priority,
+          'source': 'custom',
+          'createdAt': DateTime.now(),
+        };
+
+        setState(() {
+          _reminders = List<Map<String, Object?>>.from(_reminders);
+          _selectedReminders = List<bool>.from(_selectedReminders);
+          _reminders.insert(0, Map<String, Object?>.from(newReminder));
+          _selectedReminders.insert(0, false);
+        });
+
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Custom reminder added successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Custom reminder added successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    } catch (e) {
+      print('Error adding reminder: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to add reminder. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _toggleReminder(int index) {
+  Future<void> _toggleReminder(int index) async {
     final isCompleted = _reminders[index]['isCompleted'] as bool? ?? false;
     if (isCompleted) return;
-    setState(() {
-      _selectedReminders[index] = !_selectedReminders[index];
-    });
+    
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final reminderId = _reminders[index]['id'] as String;
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('reminders')
+            .doc(reminderId)
+            .update({'isCompleted': !isCompleted});
+        
+        setState(() {
+          _reminders[index]['isCompleted'] = !isCompleted;
+        });
+      }
+    } catch (e) {
+      print('Error updating reminder: $e');
+    }
   }
 
   void _markAsComplete() {
@@ -624,161 +712,155 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         final isCompleted = reminder['isCompleted'] as bool? ?? false;
                         final isSelected = _selectedReminders[index];
 
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.only(bottom: 12),
+                        final source = reminder['source'] as String? ?? 'user';
+                        
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () => _toggleReminder(index),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(12),
                               child: Container(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(12),
                                   color: isSelected
-                                      ? theme.primaryColor.withOpacity(0.1)
+                                      ? theme.primaryColor.withOpacity(0.05)
                                       : theme.cardColor,
                                   border: Border.all(
                                     color: isSelected
                                         ? theme.primaryColor
-                                        : theme.primaryColor.withOpacity(0.1),
-                                    width: isSelected ? 2 : 1,
+                                        : theme.subtextColor.withOpacity(0.1),
+                                    width: isSelected ? 1.5 : 1,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: theme.primaryColor.withOpacity(0.05),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
+                                      color: Colors.black.withOpacity(0.02),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
-                                child: Column(
+                                child: Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        // Category Icon with Background
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: _getPriorityColor(priority).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Icon(
-                                            priority.toLowerCase() == 'high'
+                                    // Compact icon
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: _getPriorityColor(priority).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        source == 'system' 
+                                            ? Icons.fitness_center
+                                            : priority.toLowerCase() == 'high'
                                                 ? Icons.priority_high
                                                 : priority.toLowerCase() == 'medium'
-                                                    ? Icons.watch_later
-                                                    : Icons.low_priority,
-                                            color: _getPriorityColor(priority),
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                    ? Icons.remove
+                                                    : Icons.keyboard_arrow_down,
+                                        color: _getPriorityColor(priority),
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Content
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
                                             children: [
-                                              Text(
-                                                title,
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isCompleted
-                                                      ? theme.subtextColor
-                                                      : theme.textColor,
-                                                  decoration: isCompleted
-                                                      ? TextDecoration.lineThrough
-                                                      : null,
+                                              Expanded(
+                                                child: Text(
+                                                  title,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isCompleted
+                                                        ? theme.subtextColor
+                                                        : theme.textColor,
+                                                    decoration: isCompleted
+                                                        ? TextDecoration.lineThrough
+                                                        : null,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.schedule,
-                                                    size: 14,
-                                                    color: theme.subtextColor,
+                                              const SizedBox(width: 8),
+                                              // Priority badge
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _getPriorityColor(priority).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  priority,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: _getPriorityColor(priority),
                                                   ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    schedule,
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: theme.subtextColor,
-                                                    ),
-                                                  ),
-                                                ],
+                                                ),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        // Checkbox with custom design
-                                        InkWell(
-                                          onTap: isCompleted
-                                              ? null
-                                              : () => _toggleReminder(index),
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Container(
-                                            width: 24,
-                                            height: 24,
-                                            decoration: BoxDecoration(
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: isSelected
-                                                    ? theme.primaryColor
-                                                    : theme.subtextColor.withOpacity(0.3),
-                                                width: 2,
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.schedule,
+                                                size: 12,
+                                                color: theme.subtextColor,
                                               ),
-                                              color: isSelected
-                                                  ? theme.primaryColor
-                                                  : Colors.transparent,
-                                            ),
-                                            child: isSelected
-                                                ? const Icon(
-                                                    Icons.check,
-                                                    size: 16,
-                                                    color: Colors.white,
-                                                  )
-                                                : null,
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  schedule,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: theme.subtextColor,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (isCompleted) ...[
-                                      const SizedBox(height: 12),
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: const [
-                                            Icon(
-                                              Icons.check_circle,
-                                              color: Colors.green,
-                                              size: 16,
-                                            ),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'Completed',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.green,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Completion checkbox
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? theme.primaryColor
+                                              : theme.subtextColor.withOpacity(0.3),
+                                          width: 1.5,
+                                        ),
+                                        color: isSelected
+                                            ? theme.primaryColor
+                                            : Colors.transparent,
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(
+                                              Icons.check,
+                                              color: Colors.white,
+                                              size: 12,
+                                            )
+                                          : null,
+                                    ),
                                   ],
                                 ),
                               ),

@@ -331,6 +331,44 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
     setState(() => _loadingAssigned = false);
   }
 
+  Future<void> _createTodaysSessionReminder(String userId) async {
+    try {
+      // Check if today's session reminder already exists
+      final existingReminder = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('reminders')
+          .where('title', isEqualTo: "Today's Session")
+          .where('source', isEqualTo: 'system')
+          .get();
+
+      if (existingReminder.docs.isEmpty) {
+        // Create today's session reminder
+        final now = DateTime.now();
+        final scheduledTime = DateTime(now.year, now.month, now.day, 8, 0); // 8:00 AM today
+        
+        final reminderData = {
+          'title': "Today's Session",
+          'schedule': 'Complete your assigned exercises',
+          'time': '8:00 AM',
+          'isCompleted': false,
+          'priority': 'High',
+          'source': 'system',
+          'createdAt': FieldValue.serverTimestamp(),
+          'scheduledTime': Timestamp.fromDate(scheduledTime),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('reminders')
+            .add(reminderData);
+      }
+    } catch (e) {
+      print('Error creating today\'s session reminder: $e');
+    }
+  }
+
   String _getExerciseCategory(Map<String, dynamic> exercise) {
     // Try to get category from exercise data, fallback to intelligent categorization
     String? category = exercise['category']?.toString().toLowerCase();
@@ -2054,6 +2092,15 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
                                           .doc(userId)
                                           .collection('assignedExercises')
                                           .add(assignment);
+                                      
+                                      // Create "Today's Session" reminder if exercise is assigned for today
+                                      final now = DateTime.now();
+                                      final today = DateTime(now.year, now.month, now.day);
+                                      final exerciseDate = DateTime(scheduledDate!.year, scheduledDate!.month, scheduledDate!.day);
+                                      
+                                      if (exerciseDate.isAtSameMomentAs(today)) {
+                                        await _createTodaysSessionReminder(userId);
+                                      }
                                     }
                                     Navigator.pop(context);
                                   },
