@@ -292,7 +292,7 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
   List<Map<String, dynamic>> _assignedExercises = [];
   bool _loadingAssigned = true;
   bool _showAssigned = true; // toggle between Assigned / Available
-  Map<String, bool> _expandedCategories = {};
+  final Map<String, bool> _expandedCategories = {};
   final TextEditingController _searchController = TextEditingController();
 
   @override

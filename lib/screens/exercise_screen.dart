@@ -19,7 +19,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   List<Map<String, dynamic>> _exercises = [];
   bool _isLoading = true;
   String? _userId;
-  Map<String, bool> _expandedCategories = {};
+  final Map<String, bool> _expandedCategories = {};
 
   @override
   void initState() {
