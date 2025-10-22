@@ -292,6 +292,8 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
   List<Map<String, dynamic>> _assignedExercises = [];
   bool _loadingAssigned = true;
   bool _showAssigned = true; // toggle between Assigned / Available
+  Map<String, bool> _expandedCategories = {};
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -327,6 +329,353 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
       _assignedExercises = [];
     }
     setState(() => _loadingAssigned = false);
+  }
+
+  String _getExerciseCategory(Map<String, dynamic> exercise) {
+    // Try to get category from exercise data, fallback to intelligent categorization
+    String? category = exercise['category']?.toString().toLowerCase();
+    if (category != null && category.isNotEmpty) {
+      return category;
+    }
+    
+    // Intelligent categorization based on exercise name
+    String name = (exercise['title'] ?? exercise['name'] ?? '').toString().toLowerCase();
+    
+    if (name.contains('core') || name.contains('ab') || name.contains('plank') || name.contains('crunch')) {
+      return 'core';
+    } else if (name.contains('leg') || name.contains('squat') || name.contains('calf') || name.contains('thigh')) {
+      return 'lower body';
+    } else if (name.contains('arm') || name.contains('bicep') || name.contains('tricep') || name.contains('shoulder') || name.contains('chest')) {
+      return 'upper body';
+    } else if (name.contains('cardio') || name.contains('walk') || name.contains('run') || name.contains('bike')) {
+      return 'cardio';
+    } else if (name.contains('stretch') || name.contains('flexibility') || name.contains('yoga')) {
+      return 'flexibility';
+    } else {
+      return 'general';
+    }
+  }
+
+  Map<String, List<Map<String, dynamic>>> _groupExercisesByCategory(List<Map<String, dynamic>> exercises) {
+    Map<String, List<Map<String, dynamic>>> grouped = {};
+    
+    for (var exercise in exercises) {
+      String category = _getExerciseCategory(exercise);
+      if (!grouped.containsKey(category)) {
+        grouped[category] = [];
+        // Initialize category as expanded by default
+        _expandedCategories[category] ??= true;
+      }
+      grouped[category]!.add(exercise);
+    }
+    
+    return grouped;
+  }
+
+  String _capitalizeCategory(String category) {
+    return category.split(' ').map((word) => 
+      word.isEmpty ? word : word[0].toUpperCase() + word.substring(1)
+    ).join(' ');
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'core':
+        return Icons.fitness_center;
+      case 'lower body':
+        return Icons.directions_walk;
+      case 'upper body':
+        return Icons.accessibility_new;
+      case 'cardio':
+        return Icons.favorite;
+      case 'flexibility':
+        return Icons.self_improvement;
+      default:
+        return Icons.sports_gymnastics;
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredExercises {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _exercises;
+    
+    return _exercises.where((exercise) {
+      final title = (exercise['title'] ?? exercise['name'] ?? '').toString().toLowerCase();
+      final category = (exercise['category'] ?? '').toString().toLowerCase();
+      final description = (exercise['description'] ?? '').toString().toLowerCase();
+      
+      return title.contains(query) || 
+             category.contains(query) || 
+             description.contains(query);
+    }).toList();
+  }
+
+  List<Widget> _buildCategorizedExerciseList(List<Map<String, dynamic>> exercises) {
+    final groupedExercises = _groupExercisesByCategory(exercises);
+    List<Widget> widgets = [];
+    
+    // Sort categories for consistent display
+    final sortedCategories = groupedExercises.keys.toList()..sort();
+    
+    for (String category in sortedCategories) {
+      final categoryExercises = groupedExercises[category]!;
+      final isExpanded = _expandedCategories[category] ?? true;
+      
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: widget.themeProvider.subtextColor.withOpacity(0.1),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Category header
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _expandedCategories[category] = !isExpanded;
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: widget.themeProvider.primaryColor.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _getCategoryIcon(category),
+                        color: widget.themeProvider.primaryColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _capitalizeCategory(category),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: widget.themeProvider.textColor,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${categoryExercises.length}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: widget.themeProvider.subtextColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      AnimatedRotation(
+                        turns: isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          color: widget.themeProvider.subtextColor,
+                          size: 20,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Exercise list
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: isExpanded ? null : 0,
+                child: isExpanded
+                    ? Column(
+                        children: categoryExercises.map((exercise) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: _buildCompactExerciseCard(exercise),
+                          );
+                        }).toList(),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    return widgets;
+  }
+
+  Widget _buildCompactExerciseCard(Map<String, dynamic> exercise) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: widget.themeProvider.cardColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: widget.themeProvider.subtextColor.withOpacity(0.1),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Exercise icon
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: widget.themeProvider.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _getCategoryIcon(_getExerciseCategory(exercise)),
+              color: widget.themeProvider.primaryColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Exercise info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        exercise['title'] ?? exercise['name'] ?? 'Exercise',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: widget.themeProvider.textColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Category badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: widget.themeProvider.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _capitalizeCategory(_getExerciseCategory(exercise)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: widget.themeProvider.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (exercise['description'] != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    exercise['description'],
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: widget.themeProvider.subtextColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Action buttons
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Edit button
+              InkWell(
+                onTap: () => _showEditExerciseDialog(exercise),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: widget.themeProvider.subtextColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.edit_outlined,
+                    color: widget.themeProvider.subtextColor,
+                    size: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Delete button
+              InkWell(
+                onTap: () => _deleteExercise(exercise['id']),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Assign button
+              InkWell(
+                onTap: () => _showAssignDialog(exercise),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: widget.themeProvider.primaryColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Assign',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deleteAssignment(String docId) async {
@@ -1842,152 +2191,66 @@ class _UserExerciseManagerState extends State<_UserExerciseManager> {
                                 ))
                       : (_loading
                           ? const Center(child: CircularProgressIndicator())
-                          : ListView.builder(
-                              itemCount: _exercises.length,
-                              padding: const EdgeInsets.all(16),
-                              itemBuilder: (context, i) {
-                                final ex = _exercises[i];
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  decoration: BoxDecoration(
-                                    color: theme.cardColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: theme.primaryColor.withOpacity(0.1),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: theme.primaryColor.withOpacity(0.05),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
+                          : Column(
+                              children: [
+                                // Search bar
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: (value) => setState(() {}),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search exercises...',
+                                      prefixIcon: Icon(
+                                        Icons.search,
+                                        color: theme.subtextColor,
                                       ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              width: 56,
-                                              height: 56,
-                                              decoration: BoxDecoration(
-                                                color: theme.primaryColor.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Icon(
-                                                Icons.fitness_center,
-                                                color: theme.primaryColor,
-                                                size: 24,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    ex['title'] ?? ex['name'] ?? 'Exercise',
-                                                    style: TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: theme.textColor,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: theme.primaryColor.withOpacity(0.1),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                    ),
-                                                    child: Text(
-                                                      ex['category'] ?? 'General',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: theme.primaryColor,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  if (ex['description'] != null) ...[
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      ex['description'],
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: theme.subtextColor,
-                                                      ),
-                                                      maxLines: 2,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: theme.backgroundColor,
-                                          borderRadius: const BorderRadius.only(
-                                            bottomLeft: Radius.circular(16),
-                                            bottomRight: Radius.circular(16),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            IconButton(
+                                      suffixIcon: _searchController.text.isNotEmpty
+                                          ? IconButton(
                                               icon: Icon(
-                                                Icons.edit_outlined,
-                                                color: theme.primaryColor,
+                                                Icons.clear,
+                                                color: theme.subtextColor,
                                               ),
-                                              onPressed: () => _showEditExerciseDialog(ex),
-                                              tooltip: 'Edit Exercise',
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.delete_outline,
-                                                color: Colors.red,
-                                              ),
-                                              onPressed: () => _deleteExercise(ex['id']),
-                                              tooltip: 'Delete Exercise',
-                                            ),
-                                            const SizedBox(width: 8),
-                                            ElevatedButton.icon(
-                                              onPressed: () => _showAssignDialog(ex),
-                                              icon: const Icon(
-                                                Icons.add,
-                                                size: 18,
-                                              ),
-                                              label: const Text('Assign'),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: theme.primaryColor,
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                  vertical: 12,
-                                                ),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                              onPressed: () {
+                                                _searchController.clear();
+                                                setState(() {});
+                                              },
+                                            )
+                                          : null,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: theme.subtextColor.withOpacity(0.2),
                                         ),
                                       ),
-                                    ],
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: theme.subtextColor.withOpacity(0.2),
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: theme.primaryColor,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                    ),
                                   ),
-                                );
-                              },
+                                ),
+                                // Categorized exercise list
+                                Expanded(
+                                  child: ListView(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    children: _buildCategorizedExerciseList(_filteredExercises),
+                                  ),
+                                ),
+                              ],
                             )),
                 ),
               ],

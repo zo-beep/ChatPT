@@ -257,7 +257,8 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final double width = constraints.maxWidth;
-                  final double height = width > 0 ? (width * 9.0 / 16.0) : 200.0;
+                  // Reduce video height to make room for instructions
+                  final double height = width > 0 ? (width * 0.4) : 150.0;
                   return Container(
                     height: height,
                     decoration: BoxDecoration(
@@ -269,30 +270,26 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: theme?.cardColor ?? Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Instructions',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: theme?.textColor ?? Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ...widget.instructions.map((instruction) => _buildInstruction(instruction, theme)),
-                      ],
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: theme?.cardColor ?? Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Instructions',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: theme?.textColor ?? Colors.black87,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    ...widget.instructions.map((instruction) => _buildInstruction(instruction, theme)),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
