@@ -9,13 +9,13 @@ class ActionButton extends StatelessWidget {
   final ThemeProvider theme;
 
   const ActionButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.icon,
     required this.label,
     required this.color,
     required this.theme,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
