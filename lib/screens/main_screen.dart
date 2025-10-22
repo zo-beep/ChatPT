@@ -732,13 +732,7 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(
           builder: (context) => VideoGuideScreen(
             exerciseName: firstIncompleteExercise['exerciseName'] ?? firstIncompleteExercise['name'] ?? firstIncompleteExercise['title'] ?? 'Exercise',
-            instructions: List<String>.from(firstIncompleteExercise['instructions'] ?? [
-              '1. Follow the exercise instructions carefully.',
-              '2. Start slowly and increase intensity gradually.',
-              '3. Stop if you feel any pain.',
-              '4. Breathe normally throughout the exercise.',
-              '5. Repeat as recommended by your physical therapist.',
-            ]),
+            instructions: List<String>.from(firstIncompleteExercise['instructions'] ?? []),
             themeProvider: widget.themeProvider,
             exerciseData: firstIncompleteExercise,
             canComplete: true,

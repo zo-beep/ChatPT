@@ -47,14 +47,13 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
     try {
       final videoUrl = widget.exerciseData?['videoUrl'];
 
-      // Handle asset video or empty URL
+      // Handle empty URL - show no video message
       if (videoUrl == null || videoUrl.isEmpty) {
-        _controller = VideoPlayerController.asset('assets/videos/mockvid.mp4');
-        await _controller!.initialize();
         setState(() {
           _isInitialized = true;
           _isYoutubeVideo = false;
           _isPlaying = false;
+          _videoError = 'No video available for this exercise';
         });
         return;
       }

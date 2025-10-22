@@ -417,13 +417,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           MaterialPageRoute(
             builder: (context) => VideoGuideScreen(
               exerciseName: title,
-              instructions: List<String>.from(exercise['instructions'] ?? [
-                '1. Follow the exercise instructions carefully.',
-                '2. Start slowly and increase intensity gradually.',
-                '3. Stop if you feel any pain.',
-                '4. Breathe normally throughout the exercise.',
-                '5. Repeat as recommended by your physical therapist.',
-              ]),
+              instructions: List<String>.from(exercise['instructions'] ?? []),
               themeProvider: widget.themeProvider,
               exerciseData: exercise,
               canComplete: !isCompleted,
@@ -573,13 +567,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           MaterialPageRoute(
             builder: (context) => VideoGuideScreen(
               exerciseName: title,
-              instructions: List<String>.from(exercise['instructions'] ?? [
-                '1. Follow the exercise instructions carefully.',
-                '2. Start slowly and increase intensity gradually.',
-                '3. Stop if you feel any pain.',
-                '4. Breathe normally throughout the exercise.',
-                '5. Repeat as recommended by your physical therapist.',
-              ]),
+              instructions: List<String>.from(exercise['instructions'] ?? []),
               themeProvider: widget.themeProvider,
               exerciseData: exercise,
               canComplete: !isCompleted,
