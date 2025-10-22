@@ -4,6 +4,7 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:demo_app/main.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io' show Platform;
 
 class VideoGuideScreen extends StatefulWidget {
   final String exerciseName;
@@ -256,8 +257,8 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final double width = constraints.maxWidth;
-                  // Reduce video height to make room for instructions
-                  final double height = width > 0 ? (width * 0.4) : 150.0;
+                  // Set video height to YouTube aspect ratio (16:9)
+                  final double height = width > 0 ? (width * 9 / 16) : 150.0;
                   return Container(
                     height: height,
                     decoration: BoxDecoration(
@@ -399,12 +400,6 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
         borderRadius: BorderRadius.circular(16),
         child: YoutubePlayer(
           controller: _youtubeController!,
-          showVideoProgressIndicator: true,
-          progressIndicatorColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-          progressColors: ProgressBarColors(
-            playedColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-            handleColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-          ),
         ),
       );
     }
