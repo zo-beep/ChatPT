@@ -285,7 +285,7 @@ class UserService {
             .collection('users')
             .doc(user.uid)
             .get();
-        
+
         if (doc.exists) {
           final data = doc.data()!;
           return data['rememberMe'] ?? false;
@@ -297,7 +297,59 @@ class UserService {
       final prefs = await _prefs;
       return prefs.getBool('remember_me') ?? false;
     }
-    
+
     return false;
+  }
+
+  // Fetch list of users from Firestore (for admin search)
+  static Future<List<Map<String, dynamic>>> fetchUsers({String? searchQuery}) async {
+    try {
+      Query query = FirebaseFirestore.instance.collection('users');
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        // Search by name or email (case-insensitive)
+        query = query.where('name', isGreaterThanOrEqualTo: searchQuery)
+                     .where('name', isLessThanOrEqualTo: searchQuery + '\uf8ff')
+                     .limit(20); // Limit results for performance
+      } else {
+        query = query.limit(50); // Default limit if no search
+      }
+
+      final snapshot = await query.get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['uid'] = doc.id; // Add UID to the data
+        return data;
+      }).toList();
+    } catch (e) {
+      print('Error fetching users from Firestore: $e');
+      return [];
+    }
+  }
+
+  // Get user profile by UID from Firestore
+  static Future<Map<String, dynamic>?> getUserProfileByUid(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['uid'] = doc.id;
+        return data;
+      }
+    } catch (e) {
+      print('Error fetching user profile by UID: $e');
+    }
+    return null;
+  }
+
+  // Update user profile in Firestore (for admin editing)
+  static Future<bool> updateUserProfileInFirestore(String uid, Map<String, dynamic> updates) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update(updates);
+      return true;
+    } catch (e) {
+      print('Error updating user profile in Firestore: $e');
+      return false;
+    }
   }
 }

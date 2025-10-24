@@ -18,6 +18,10 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  Map<String, dynamic>? _selectedUser;
+  bool _isSearching = false;
+  bool _isLoadingUser = false;
 
   @override
   void initState() {
@@ -124,19 +128,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         // Search Bar
                         TextField(
                           controller: _searchController,
+                          onChanged: _performSearch,
                           decoration: InputDecoration(
                             hintText: 'Search User',
                             hintStyle: TextStyle(
                               color: widget.themeProvider.subtextColor,
                             ),
-                            prefixIcon: Icon(
-                              Icons.menu,
-                              color: widget.themeProvider.primaryColor,
+                            prefixIcon: IconButton(
+                              icon: Icon(
+                                Icons.menu,
+                                color: widget.themeProvider.primaryColor,
+                              ),
+                              onPressed: _showAllUsers,
                             ),
-                            suffixIcon: Icon(
-                              Icons.search,
-                              color: widget.themeProvider.primaryColor,
-                            ),
+                            suffixIcon: _isSearching
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : Icon(
+                                    Icons.search,
+                                    color: widget.themeProvider.primaryColor,
+                                  ),
                             filled: true,
                             fillColor: widget.themeProvider.backgroundColor,
                             border: OutlineInputBorder(
@@ -152,6 +166,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        // Search Results
+                        if (_searchResults.isNotEmpty)
+                          Container(
+                            height: 200,
+                            decoration: BoxDecoration(
+                              color: widget.themeProvider.backgroundColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: widget.themeProvider.primaryColor.withOpacity(0.15),
+                                width: 1,
+                              ),
+                            ),
+                            child: ListView.builder(
+                              itemCount: _searchResults.length,
+                              itemBuilder: (context, index) {
+                                final user = _searchResults[index];
+                                return ListTile(
+                                  title: Text(
+                                    user['name'] ?? 'Unknown',
+                                    style: TextStyle(color: widget.themeProvider.textColor),
+                                  ),
+                                  subtitle: Text(
+                                    user['email'] ?? '',
+                                    style: TextStyle(color: widget.themeProvider.subtextColor),
+                                  ),
+                                  onTap: () => _selectUser(user['uid']),
+                                );
+                              },
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -191,16 +236,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                 ),
                                 TextButton.icon(
-                                  onPressed: () {},
+                                  onPressed: _selectedUser != null ? _showEditDialog : null,
                                   icon: Icon(
                                     Icons.edit,
                                     size: 16,
-                                    color: widget.themeProvider.primaryColor,
+                                    color: _selectedUser != null ? widget.themeProvider.primaryColor : widget.themeProvider.subtextColor,
                                   ),
                                   label: Text(
                                     'Edit Information',
                                     style: TextStyle(
-                                      color: widget.themeProvider.primaryColor,
+                                      color: _selectedUser != null ? widget.themeProvider.primaryColor : widget.themeProvider.subtextColor,
                                     ),
                                   ),
                                 ),
@@ -312,12 +357,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildUserInfoTable(ThemeProvider theme) {
+    if (_selectedUser == null) {
+      return Center(
+        child: Text(
+          'Select a user to view information',
+          style: TextStyle(color: theme.subtextColor),
+        ),
+      );
+    }
+
+    if (_isLoadingUser) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final data = [
-      ['UID#', '0000001'],
-      ['Name', 'John Doe'],
-      ['Email', 'sampleemail03@gmail.com'],
-      ['Status', 'Active'],
-      ['Role', 'Patient'],
+      ['UID#', _selectedUser!['uid'] ?? 'N/A'],
+      ['Name', _selectedUser!['name'] ?? 'N/A'],
+      ['Email', _selectedUser!['email'] ?? 'N/A'],
+      ['Status', _selectedUser!['status'] ?? 'Active'],
+      ['Role', _selectedUser!['role'] ?? 'patient'],
     ];
 
     return Column(
@@ -360,6 +418,214 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
         ],
       ],
+    );
+  }
+
+  Future<void> _performSearch(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final results = await UserService.fetchUsers(searchQuery: query);
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      print('Search error: $e');
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+    }
+  }
+
+  Future<void> _showAllUsers() async {
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final results = await UserService.fetchUsers(searchQuery: ''); // Empty query to fetch all users
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      print('Error fetching all users: $e');
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error loading users')),
+      );
+    }
+  }
+
+  Future<void> _selectUser(String uid) async {
+    setState(() {
+      _isLoadingUser = true;
+      _selectedUser = null;
+    });
+
+    try {
+      final user = await UserService.getUserProfileByUid(uid);
+      setState(() {
+        _selectedUser = user;
+        _isLoadingUser = false;
+        _searchResults = []; // Clear search results after selection
+        _searchController.clear(); // Clear search text
+      });
+    } catch (e) {
+      print('Error selecting user: $e');
+      setState(() {
+        _isLoadingUser = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error loading user information')),
+      );
+    }
+  }
+
+  void _showEditDialog() {
+    if (_selectedUser == null) return;
+
+    final nameController = TextEditingController(text: _selectedUser!['name'] ?? '');
+    final emailController = TextEditingController(text: _selectedUser!['email'] ?? '');
+    final statusController = TextEditingController(text: _selectedUser!['status'] ?? 'Active');
+    final roleController = TextEditingController(text: _selectedUser!['role'] ?? 'patient');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: widget.themeProvider.cardColor,
+        title: Text(
+          'Edit User Information',
+          style: TextStyle(color: widget.themeProvider.textColor),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  labelStyle: TextStyle(color: widget.themeProvider.subtextColor),
+                  border: OutlineInputBorder(),
+                ),
+                style: TextStyle(color: widget.themeProvider.textColor),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: TextStyle(color: widget.themeProvider.subtextColor),
+                  border: OutlineInputBorder(),
+                ),
+                style: TextStyle(color: widget.themeProvider.textColor),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: statusController,
+                decoration: InputDecoration(
+                  labelText: 'Status',
+                  labelStyle: TextStyle(color: widget.themeProvider.subtextColor),
+                  border: OutlineInputBorder(),
+                ),
+                style: TextStyle(color: widget.themeProvider.textColor),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: roleController,
+                decoration: InputDecoration(
+                  labelText: 'Role',
+                  labelStyle: TextStyle(color: widget.themeProvider.subtextColor),
+                  border: OutlineInputBorder(),
+                ),
+                style: TextStyle(color: widget.themeProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: widget.themeProvider.primaryColor),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final updates = {
+                'name': nameController.text.trim(),
+                'email': emailController.text.trim(),
+                'status': statusController.text.trim(),
+                'role': roleController.text.trim(),
+              };
+
+              // Basic validation
+              if (updates['name']!.isEmpty || updates['email']!.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Name and Email are required')),
+                );
+                return;
+              }
+
+              // Prevent changing role to admin (basic permission check)
+              if (updates['role'] == 'admin' && _selectedUser!['role'] != 'admin') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Cannot assign admin role')),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop(); // Close dialog
+
+              try {
+                final success = await UserService.updateUserProfileInFirestore(_selectedUser!['uid'], updates);
+                if (success) {
+                  // Refresh the selected user data
+                  final updatedUser = await UserService.getUserProfileByUid(_selectedUser!['uid']);
+                  setState(() {
+                    _selectedUser = updatedUser;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('User information updated successfully')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to update user information')),
+                  );
+                }
+              } catch (e) {
+                print('Error updating user: $e');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Error updating user information')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: widget.themeProvider.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
