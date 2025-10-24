@@ -4,11 +4,13 @@ import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/screens/progress_screen.dart';
 import 'package:demo_app/screens/chatbot_screen.dart';
 import 'package:demo_app/screens/patient_dashboard_screen.dart';
+import 'package:demo_app/screens/doctor_dashboard_screen.dart';
+import 'package:demo_app/screens/admin_dashboard_screen.dart';
 import 'package:demo_app/screens/video_guide_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // MAIN SCREEN WITH BOTTOM NAVIGATION
 class MainScreen extends StatefulWidget {
@@ -276,14 +278,28 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 GestureDetector(
                                   onTap: () {
+                                    final role = UserService.getUserRole();
+                                    Widget dashboardScreen;
+                                    switch (role) {
+                                      case 'doctor':
+                                        dashboardScreen = DoctorDashboardScreen(
+                                          themeProvider: widget.themeProvider,
+                                        );
+                                        break;
+                                      case 'admin':
+                                        dashboardScreen = AdminDashboardScreen(
+                                          themeProvider: widget.themeProvider,
+                                        );
+                                        break;
+                                      default:
+                                        dashboardScreen = PatientDashboardScreen(
+                                          themeProvider: widget.themeProvider,
+                                        );
+                                    }
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) =>
-                                            PatientDashboardScreen(
-                                          themeProvider:
-                                              widget.themeProvider,
-                                        ),
+                                        builder: (context) => dashboardScreen,
                                       ),
                                     );
                                   },
