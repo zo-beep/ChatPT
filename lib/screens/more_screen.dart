@@ -8,6 +8,7 @@ import 'package:demo_app/screens/reminders_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:demo_app/screens/doctor_dashboard_screen.dart';
 import 'package:demo_app/screens/admin_dashboard_screen.dart';
+import 'package:demo_app/services/user_service.dart';
 
 // MORE SCREEN
 class MoreScreen extends StatefulWidget {
@@ -87,10 +88,20 @@ class _MoreScreenState extends State<MoreScreen> {
                       'Profile',
                       Icons.arrow_forward_ios,
                       onTap: () {
+                        // Navigate based on user role
+                        final userRole = UserService.getUserRole();
+                        Widget dashboardScreen;
+                        if (userRole == 'doctor') {
+                          dashboardScreen = DoctorDashboardScreen(themeProvider: themeProvider);
+                        } else if (userRole == 'admin') {
+                          dashboardScreen = AdminDashboardScreen(themeProvider: themeProvider);
+                        } else {
+                          dashboardScreen = PatientDashboardScreen(themeProvider: themeProvider);
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PatientDashboardScreen(themeProvider: themeProvider),
+                            builder: (context) => dashboardScreen,
                           ),
                         );
                       },
@@ -208,65 +219,7 @@ class _MoreScreenState extends State<MoreScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              // Temporary Doctor and Admin Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => DoctorDashboardScreen(themeProvider: widget.themeProvider,)),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: themeProvider.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Doctor',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => AdminDashboardScreen(themeProvider: widget.themeProvider,)),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: themeProvider.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Admin',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+
             ],
           ),
         ),

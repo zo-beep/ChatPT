@@ -122,19 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
             await UserService.setUserRole(normalizedRole);
 
             if (mounted) {
-              if (normalizedRole == 'doctor') {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => DoctorDashboardScreen(themeProvider: widget.themeProvider!)),
-                  );
-                } else if (normalizedRole == 'admin') {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => AdminDashboardScreen(themeProvider: widget.themeProvider!)),
-                  );
-                } else {
-                  Navigator.pushReplacementNamed(context, '/main');
-                }
+            // All roles now navigate to main screen after login
+            Navigator.pushReplacementNamed(context, '/main');
             }
           } else {
             // No Firestore doc; ensure role saved and proceed
