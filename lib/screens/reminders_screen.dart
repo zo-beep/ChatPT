@@ -264,6 +264,590 @@ class _RemindersScreenState extends State<RemindersScreen> {
     });
   }
 
+  void _showReminderMenu(int index) {
+    final reminder = _reminders[index];
+    final source = reminder['source'] as String? ?? 'user';
+
+    // Only show menu for custom reminders
+    if (source != 'custom') return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: widget.themeProvider.cardColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: widget.themeProvider.subtextColor.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Icon(Icons.edit, color: widget.themeProvider.primaryColor),
+                title: Text(
+                  'Edit Reminder',
+                  style: TextStyle(color: widget.themeProvider.textColor),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editReminder(index);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete, color: Colors.red),
+                title: Text(
+                  'Delete Reminder',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteReminder(index);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _editReminder(int index) {
+    final reminder = _reminders[index];
+    final title = reminder['title'] as String? ?? '';
+    final schedule = reminder['schedule'] as String? ?? '';
+    final priority = reminder['priority'] as String? ?? 'Low';
+
+    // Parse schedule to extract date and time if possible
+    DateTime? selectedDate;
+    TimeOfDay? selectedTime;
+    String selectedRepeat = 'Once';
+
+    // Simple parsing - this could be improved
+    if (schedule.contains(' at ')) {
+      final parts = schedule.split(' at ');
+      if (parts.length == 2) {
+        final datePart = parts[0];
+        final timePart = parts[1];
+
+        // Try to parse date
+        if (datePart.contains('/')) {
+          final dateParts = datePart.split('/');
+          if (dateParts.length == 3) {
+            try {
+              selectedDate = DateTime(
+                int.parse(dateParts[2]),
+                int.parse(dateParts[1]),
+                int.parse(dateParts[0]),
+              );
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
+        }
+
+        // Try to parse time
+        if (timePart.contains(':')) {
+          final timeParts = timePart.split(':');
+          if (timeParts.length == 2) {
+            try {
+              final hour = int.parse(timeParts[0]);
+              final minute = int.parse(timeParts[1].split(' ')[0]);
+              selectedTime = TimeOfDay(hour: hour, minute: minute);
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
+        }
+      }
+    } else if (schedule.contains('Daily') || schedule.contains('Weekly') || schedule.contains('Monthly')) {
+      if (schedule.contains('Daily')) selectedRepeat = 'Daily';
+      else if (schedule.contains('Weekly')) selectedRepeat = 'Weekly';
+      else if (schedule.contains('Monthly')) selectedRepeat = 'Monthly';
+
+      // Extract time from repeat schedule
+      final timeMatch = RegExp(r'at (\d{1,2}:\d{2})').firstMatch(schedule);
+      if (timeMatch != null) {
+        final timeStr = timeMatch.group(1)!;
+        final timeParts = timeStr.split(':');
+        try {
+          final hour = int.parse(timeParts[0]);
+          final minute = int.parse(timeParts[1]);
+          selectedTime = TimeOfDay(hour: hour, minute: minute);
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      }
+    }
+
+    final titleController = TextEditingController(text: title);
+    String selectedPriority = priority;
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: BoxDecoration(
+                color: widget.themeProvider.cardColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: widget.themeProvider.subtextColor.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Edit Reminder',
+                            style: TextStyle(
+                              color: widget.themeProvider.textColor,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Title Field
+                          TextField(
+                            controller: titleController,
+                            style: TextStyle(color: widget.themeProvider.textColor),
+                            decoration: InputDecoration(
+                              labelText: 'Reminder Title',
+                              labelStyle: TextStyle(color: widget.themeProvider.subtextColor),
+                              prefixIcon: Icon(Icons.title, color: widget.themeProvider.primaryColor),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: widget.themeProvider.primaryColor.withOpacity(0.3)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: widget.themeProvider.primaryColor.withOpacity(0.3)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: widget.themeProvider.primaryColor),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Date Picker
+                          InkWell(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.light(
+                                        primary: widget.themeProvider.primaryColor,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (date != null) {
+                                setState(() {
+                                  selectedDate = date;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: widget.themeProvider.primaryColor.withOpacity(0.3)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today, color: widget.themeProvider.primaryColor),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    selectedDate == null
+                                        ? 'Select Date'
+                                        : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}',
+                                    style: TextStyle(
+                                      color: widget.themeProvider.textColor,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Time Picker
+                          InkWell(
+                            onTap: () async {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: selectedTime ?? TimeOfDay.now(),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.light(
+                                        primary: widget.themeProvider.primaryColor,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (time != null) {
+                                setState(() {
+                                  selectedTime = time;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: widget.themeProvider.primaryColor.withOpacity(0.3)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.access_time, color: widget.themeProvider.primaryColor),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    selectedTime == null
+                                        ? 'Select Time'
+                                        : selectedTime!.format(context),
+                                    style: TextStyle(
+                                      color: widget.themeProvider.textColor,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Repeat Options
+                          Text(
+                            'Repeat',
+                            style: TextStyle(
+                              color: widget.themeProvider.subtextColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: ['Once', 'Daily', 'Weekly', 'Monthly'].map((repeat) {
+                              return ChoiceChip(
+                                label: Text(repeat),
+                                selected: selectedRepeat == repeat,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    selectedRepeat = repeat;
+                                  });
+                                },
+                                selectedColor: widget.themeProvider.primaryColor,
+                                labelStyle: TextStyle(
+                                  color: selectedRepeat == repeat
+                                      ? Colors.white
+                                      : widget.themeProvider.textColor,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Priority Selection
+                          Text(
+                            'Priority',
+                            style: TextStyle(
+                              color: widget.themeProvider.subtextColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: ['Low', 'Medium', 'High'].map((priority) {
+                              final color = _getPriorityColor(priority);
+                              return ChoiceChip(
+                                label: Text(priority),
+                                selected: selectedPriority == priority,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    selectedPriority = priority;
+                                  });
+                                },
+                                selectedColor: color,
+                                labelStyle: TextStyle(
+                                  color: selectedPriority == priority
+                                      ? Colors.white
+                                      : widget.themeProvider.textColor,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Action Buttons
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: widget.themeProvider.cardColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: widget.themeProvider.subtextColor,
+                              side: BorderSide(color: widget.themeProvider.subtextColor),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    if (titleController.text.isEmpty ||
+                                        selectedDate == null ||
+                                        selectedTime == null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Please fill all fields'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    setState(() {
+                                      isLoading = true;
+                                    });
+
+                                    // Format the schedule string
+                                    String schedule = '';
+                                    if (selectedRepeat == 'Once') {
+                                      schedule = '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year} at ${selectedTime!.format(context)}';
+                                    } else {
+                                      schedule = '$selectedRepeat at ${selectedTime!.format(context)}';
+                                    }
+
+                                    _updateReminder(index, titleController.text, schedule, selectedPriority);
+
+                                    Navigator.pop(context);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.themeProvider.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('Update Reminder'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _updateReminder(int index, String title, String schedule, String priority) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final reminderId = _reminders[index]['id'] as String;
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('reminders')
+            .doc(reminderId)
+            .update({
+              'title': title,
+              'schedule': schedule,
+              'time': schedule,
+              'priority': priority,
+            });
+
+        // Update local state
+        setState(() {
+          _reminders[index]['title'] = title;
+          _reminders[index]['schedule'] = schedule;
+          _reminders[index]['time'] = schedule;
+          _reminders[index]['priority'] = priority;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reminder updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating reminder: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update reminder. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteReminder(int index) {
+    final reminder = _reminders[index];
+    final title = reminder['title'] as String? ?? 'this reminder';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: widget.themeProvider.cardColor,
+          title: Text(
+            'Delete Reminder',
+            style: TextStyle(color: widget.themeProvider.textColor),
+          ),
+          content: Text(
+            'Are you sure you want to delete "$title"?',
+            style: TextStyle(color: widget.themeProvider.subtextColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: widget.themeProvider.subtextColor),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _confirmDeleteReminder(index);
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteReminder(int index) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final reminderId = _reminders[index]['id'] as String;
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('reminders')
+            .doc(reminderId)
+            .delete();
+
+        // Update local state
+        setState(() {
+          _reminders.removeAt(index);
+          _selectedReminders.removeAt(index);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reminder deleted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error deleting reminder: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete reminder. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _showAddCustomReminderDialog() {
     final titleController = TextEditingController();
     DateTime? selectedDate;
@@ -720,6 +1304,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () => _toggleReminder(index),
+                              onLongPress: () => _showReminderMenu(index),
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
