@@ -3,6 +3,7 @@ import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:demo_app/screens/manage_patient_exercise_screen.dart';
+import 'package:demo_app/screens/patient_dashboard_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -311,7 +312,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _showEditDialog(),
+                              onPressed: () => _showEditDialog(),
                           icon: const Icon(Icons.edit, size: 18),
                           label: const Text('Edit Information'),
                           style: OutlinedButton.styleFrom(
@@ -330,7 +331,13 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () {},
+                          onPressed: () {
+                            // Reuse the ChangePasswordDialog implemented in PatientDashboardScreen
+                            showDialog(
+                              context: context,
+                              builder: (context) => ChangePasswordDialog(themeProvider: widget.themeProvider),
+                            );
+                          },
                           icon: const Icon(Icons.lock, size: 18),
                           label: const Text('Change Password'),
                           style: OutlinedButton.styleFrom(

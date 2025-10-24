@@ -4,6 +4,7 @@ import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:demo_app/screens/admin_patient_records_screen.dart';
 
 // ADMIN DASHBOARD SCREEN (User Management)
 class AdminDashboardScreen extends StatefulWidget {
@@ -213,7 +214,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               children: [
                                 Expanded(
                                   child: ElevatedButton(
-                                    onPressed: () {},
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => AdminPatientRecordsScreen(themeProvider: widget.themeProvider),
+                                          ),
+                                        );
+                                      },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor:
                                           widget.themeProvider.primaryColor,
