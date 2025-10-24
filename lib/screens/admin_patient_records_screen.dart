@@ -21,6 +21,21 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
     _loadPatients();
   }
 
+  Future<void> _deletePatient(String uid) async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      await _loadPatients();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Patient deleted'), backgroundColor: Colors.green));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete patient: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _loadPatients() async {
     setState(() {
       _isLoading = true;
@@ -122,6 +137,32 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
                                               _showPatientDetails(p);
                                             },
                                             child: Text('View', style: TextStyle(color: theme.primaryColor)),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: Icon(Icons.delete_forever, color: Colors.red.shade700),
+                                            tooltip: 'Delete patient',
+                                            onPressed: () async {
+                                              final confirmed = await showDialog<bool>(
+                                                context: context,
+                                                builder: (ctx) => AlertDialog(
+                                                  title: const Text('Confirm delete'),
+                                                  content: Text('Delete patient "${p['name'] ?? 'this patient'}"? This cannot be undone.'),
+                                                  actions: [
+                                                    TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                                                    ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+                                                  ],
+                                                ),
+                                              );
+                                              if (confirmed == true) {
+                                                final uid = p['uid'] ?? null;
+                                                if (uid != null) {
+                                                  await _deletePatient(uid.toString());
+                                                } else {
+                                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot delete: missing UID'), backgroundColor: Colors.red));
+                                                }
+                                              }
+                                            },
                                           ),
                                         ],
                                       ),
