@@ -24,6 +24,49 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    // Enforce role after first frame to prevent unauthorized access
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _enforceRole();
+    });
+  }
+
+  Future<void> _enforceRole() async {
+    try {
+      // Start with local cached role
+  String role = UserService.getUserRole().toString().trim();
+
+      // If a user is signed in, try to read authoritative role from Firestore
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          final remoteRole = (data['role']?.toString() ?? '').trim();
+          if (remoteRole.isNotEmpty) {
+            role = remoteRole;
+            await UserService.setUserRole(role);
+          }
+        }
+      }
+
+      // If the role is not 'doctor', redirect away
+      if (role != 'doctor') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Access denied — doctor account required.'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.pushReplacementNamed(context, '/main');
+        }
+      }
+    } catch (e) {
+      print('Role enforcement error on doctor dashboard: $e');
+      // If anything goes wrong, be conservative and redirect
+      if (mounted) Navigator.pushReplacementNamed(context, '/main');
+    }
   }
 
   void _showEditDialog() {

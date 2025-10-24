@@ -6,6 +6,7 @@ import 'package:demo_app/main.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:demo_app/screens/doctor_dashboard_screen.dart';
+import 'package:demo_app/screens/admin_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // LOGIN SCREEN
@@ -122,13 +123,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
             if (mounted) {
               if (normalizedRole == 'doctor') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => DoctorDashboardScreen(themeProvider: widget.themeProvider!)),
-                );
-              } else {
-                Navigator.pushReplacementNamed(context, '/main');
-              }
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => DoctorDashboardScreen(themeProvider: widget.themeProvider!)),
+                  );
+                } else if (normalizedRole == 'admin') {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => AdminDashboardScreen(themeProvider: widget.themeProvider!)),
+                  );
+                } else {
+                  Navigator.pushReplacementNamed(context, '/main');
+                }
             }
           } else {
             // No Firestore doc; ensure role saved and proceed

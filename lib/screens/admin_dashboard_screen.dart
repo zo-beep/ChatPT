@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/more_screen.dart';
+import 'package:demo_app/services/user_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ADMIN DASHBOARD SCREEN (User Management)
 class AdminDashboardScreen extends StatefulWidget {
@@ -14,6 +17,50 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _enforceRole();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ensure UI is mounted before potential navigation
+    });
+  }
+
+  Future<void> _enforceRole() async {
+    try {
+      String role = UserService.getUserRole().toString().trim();
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          final remoteRole = (data['role']?.toString() ?? '').trim();
+          if (remoteRole.isNotEmpty) {
+            role = remoteRole;
+            await UserService.setUserRole(role);
+          }
+        }
+      }
+
+      if (role != 'admin') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Access denied — admin account required.'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.pushReplacementNamed(context, '/main');
+        }
+      }
+    } catch (e) {
+      print('Role enforcement error on admin dashboard: $e');
+      if (mounted) Navigator.pushReplacementNamed(context, '/main');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
