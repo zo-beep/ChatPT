@@ -3,9 +3,10 @@ import 'package:demo_app/main.dart';
 import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:demo_app/screens/manage_patient_exercise_screen.dart';
-import 'package:demo_app/screens/patient_dashboard_screen.dart';
+import 'package:demo_app/screens/manage_patient_records_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:demo_app/widgets/change_password_dialog.dart';
 
 
 // DOCTOR DASHBOARD SCREEN
@@ -288,9 +289,9 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  // Medical Information
+                  // Profession Information (doctor-facing)
                   Text(
-                    'Medical Information',
+                    'Profession Information',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -356,31 +357,60 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ManagePatientExerciseScreen(themeProvider: themeProvider),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ManagePatientExerciseScreen(themeProvider: themeProvider),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.folder_open, size: 18),
+                          label: const Text('Manage patient exercises'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: themeProvider.primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(
+                              color: themeProvider.primaryColor,
+                              width: 1.5,
+                            ),
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.folder_open, size: 18),
-                      label: const Text('Manage patient exercises'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: themeProvider.primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        side: BorderSide(
-                          color: themeProvider.primaryColor,
-                          width: 1.5,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ManagePatientRecordsScreen(themeProvider: themeProvider),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.folder_shared, size: 18),
+                          label: const Text('Manage patient records'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: themeProvider.primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(
+                              color: themeProvider.primaryColor,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -1,0 +1,491 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:demo_app/main.dart';
+
+class ManagePatientRecordsScreen extends StatefulWidget {
+  final ThemeProvider themeProvider;
+  const ManagePatientRecordsScreen({super.key, required this.themeProvider});
+
+  @override
+  State<ManagePatientRecordsScreen> createState() => _ManagePatientRecordsScreenState();
+}
+
+class _ManagePatientRecordsScreenState extends State<ManagePatientRecordsScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _users = [];
+  bool _loadingUsers = true;
+  
+  // Sorting and filtering state
+  String _sortBy = 'name'; // 'name' or 'recent'
+  String _filterDoctor = 'all';
+  String _filterStatus = 'all'; // 'all', 'active', 'completed'
+  bool _showSortFilter = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() => _loadingUsers = true);
+    try {
+      // Query users and order by name by default for consistent initial load
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .orderBy('name')
+          .limit(200)
+          .get();
+      
+      _users = snap.docs.map((d) {
+        final data = d.data();
+        return {
+          'id': d.id,
+          'name': data['name'] ?? '',
+          'email': data['email'] ?? '',
+          'patientId': data['patientId'] ?? '',
+          'assignedDoctor': data['assignedDoctor'] ?? '',
+          'therapyStartDate': data['therapyStartDate'] ?? '',
+          // Include other fields needed for filtering/display
+          ...data,
+        };
+      }).toList();
+      
+      // Initial sort by name
+      _users.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
+      
+    } catch (e) {
+      print('Failed to load users for records: $e');
+      _users = [];
+    }
+    setState(() => _loadingUsers = false);
+  }
+
+  List<Map<String, dynamic>> get _filteredUsers {
+    var filtered = _users;
+    
+    // Apply search filter
+    final q = _searchController.text.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      filtered = filtered.where((u) {
+        final name = (u['name'] ?? '').toString().toLowerCase();
+        final email = (u['email'] ?? '').toString().toLowerCase();
+        final id = (u['patientId'] ?? u['id'] ?? '').toString().toLowerCase();
+        return name.contains(q) || email.contains(q) || id.contains(q);
+      }).toList();
+    }
+    
+    // Apply doctor filter
+    if (_filterDoctor != 'all') {
+      filtered = filtered.where((u) => 
+        (u['assignedDoctor'] ?? '').toString().toLowerCase() == _filterDoctor.toLowerCase()
+      ).toList();
+    }
+    
+    // Apply status filter
+    if (_filterStatus != 'all') {
+      final isActive = _filterStatus == 'active';
+      filtered = filtered.where((u) {
+        final hasTherapyDate = (u['therapyStartDate'] ?? '').toString().isNotEmpty;
+        return isActive ? hasTherapyDate : !hasTherapyDate;
+      }).toList();
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) {
+      if (_sortBy == 'recent') {
+        final dateA = (a['therapyStartDate'] ?? '').toString();
+        final dateB = (b['therapyStartDate'] ?? '').toString();
+        return dateB.compareTo(dateA); // Most recent first
+      } else {
+        // Sort by name
+        final nameA = (a['name'] ?? '').toString().toLowerCase();
+        final nameB = (b['name'] ?? '').toString().toLowerCase();
+        return nameA.compareTo(nameB);
+      }
+    });
+    
+    return filtered;
+  }
+
+  void _openRecordEditor(Map<String, dynamic> user) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => _PatientRecordEditor(user: user, themeProvider: widget.themeProvider)),
+    );
+    await _loadUsers();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.themeProvider;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Manage Patient Records'),
+        backgroundColor: theme.cardColor,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: theme.primaryColor),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Patient Directory',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Search patients and edit their medical records',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.subtextColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.backgroundColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: theme.primaryColor.withOpacity(0.1),
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            style: TextStyle(color: theme.textColor),
+                            decoration: InputDecoration(
+                              hintText: 'Search patients... (name, email, id)',
+                              hintStyle: TextStyle(color: theme.subtextColor),
+                              prefixIcon: Icon(Icons.search, color: theme.primaryColor),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(Icons.clear, color: theme.subtextColor),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() {});
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: Icon(
+                          _showSortFilter ? Icons.filter_list_off : Icons.filter_list,
+                          color: theme.primaryColor,
+                        ),
+                        onPressed: () => setState(() => _showSortFilter = !_showSortFilter),
+                        tooltip: 'Show/Hide Filters',
+                      ),
+                    ],
+                  ),
+                  if (_showSortFilter) ...[
+                    const SizedBox(height: 16),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          // Sort options
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: theme.backgroundColor,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: theme.primaryColor.withOpacity(0.1)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _sortBy,
+                                icon: Icon(Icons.sort, color: theme.primaryColor, size: 16),
+                                style: TextStyle(color: theme.textColor, fontSize: 14),
+                                dropdownColor: theme.backgroundColor,
+                                items: [
+                                  DropdownMenuItem(value: 'name', child: Text('Sort by Name')),
+                                  DropdownMenuItem(value: 'recent', child: Text('Sort by Recent')),
+                                ],
+                                onChanged: (value) => setState(() => _sortBy = value!),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Doctor filter
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: theme.backgroundColor,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: theme.primaryColor.withOpacity(0.1)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _filterDoctor,
+                                icon: Icon(Icons.person, color: theme.primaryColor, size: 16),
+                                style: TextStyle(color: theme.textColor, fontSize: 14),
+                                dropdownColor: theme.backgroundColor,
+                                items: [
+                                  DropdownMenuItem(value: 'all', child: Text('All Doctors')),
+                                  ...Set.from(_users.map((u) => u['assignedDoctor'] ?? ''))
+                                      .where((d) => d.isNotEmpty)
+                                      .map((d) => DropdownMenuItem(value: d, child: Text(d))),
+                                ],
+                                onChanged: (value) => setState(() => _filterDoctor = value!),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Status filter
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: theme.backgroundColor,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: theme.primaryColor.withOpacity(0.1)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _filterStatus,
+                                icon: Icon(Icons.event_note, color: theme.primaryColor, size: 16),
+                                style: TextStyle(color: theme.textColor, fontSize: 14),
+                                dropdownColor: theme.backgroundColor,
+                                items: [
+                                  DropdownMenuItem(value: 'all', child: Text('All Status')),
+                                  DropdownMenuItem(value: 'active', child: Text('Active Therapy')),
+                                  DropdownMenuItem(value: 'completed', child: Text('No Therapy')),
+                                ],
+                                onChanged: (value) => setState(() => _filterStatus = value!),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: _loadingUsers
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                      ),
+                    )
+                  : _filteredUsers.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.people_outline, size: 64, color: theme.subtextColor),
+                              const SizedBox(height: 16),
+                              Text('No patients found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: theme.textColor)),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _filteredUsers.length,
+                          itemBuilder: (context, i) {
+                            final u = _filteredUsers[i];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: theme.cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: theme.primaryColor.withOpacity(0.1)),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _openRecordEditor(u),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 48,
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            color: theme.primaryColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Center(
+                                            child: Text((u['name'] ?? u['email'] ?? 'U')[0].toString().toUpperCase(), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.primaryColor)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(u['name'] ?? u['email'] ?? 'Unknown', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.textColor)),
+                                              const SizedBox(height: 4),
+                                              Text(u['email'] ?? '', style: TextStyle(fontSize: 14, color: theme.subtextColor)),
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(Icons.arrow_forward_ios, size: 14, color: theme.primaryColor),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PatientRecordEditor extends StatefulWidget {
+  final Map<String, dynamic> user;
+  final ThemeProvider themeProvider;
+  const _PatientRecordEditor({required this.user, required this.themeProvider});
+
+  @override
+  State<_PatientRecordEditor> createState() => _PatientRecordEditorState();
+}
+
+class _PatientRecordEditorState extends State<_PatientRecordEditor> {
+  late TextEditingController _diagnosisC;
+  late TextEditingController _medicationsC;
+  late TextEditingController _assignedDoctorC;
+  late TextEditingController _therapyStartDateC;
+  late TextEditingController _heightC;
+  late TextEditingController _weightC;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final u = widget.user;
+    _diagnosisC = TextEditingController(text: u['diagnosis'] ?? '');
+    _medicationsC = TextEditingController(text: u['medications'] ?? '');
+    _assignedDoctorC = TextEditingController(text: u['assignedDoctor'] ?? '');
+    _therapyStartDateC = TextEditingController(text: u['therapyStartDate'] ?? '');
+    _heightC = TextEditingController(text: u['height'] ?? '');
+    _weightC = TextEditingController(text: u['weight'] ?? '');
+  }
+
+  @override
+  void dispose() {
+    _diagnosisC.dispose();
+    _medicationsC.dispose();
+    _assignedDoctorC.dispose();
+    _therapyStartDateC.dispose();
+    _heightC.dispose();
+    _weightC.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    final userId = widget.user['id'] ?? widget.user['patientId'];
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Missing user id')));
+      setState(() => _isSaving = false);
+      return;
+    }
+
+    final data = {
+      'diagnosis': _diagnosisC.text.trim(),
+      'medications': _medicationsC.text.trim(),
+      'assignedDoctor': _assignedDoctorC.text.trim(),
+      'therapyStartDate': _therapyStartDateC.text.trim(),
+      'height': _heightC.text.trim(),
+      'weight': _weightC.text.trim(),
+    };
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(userId).set(data, SetOptions(merge: true));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Patient record saved'), backgroundColor: Colors.green));
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.themeProvider;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.user['name'] ?? 'Patient Record'),
+        backgroundColor: theme.cardColor,
+        leading: IconButton(icon: Icon(Icons.close, color: theme.primaryColor), onPressed: () => Navigator.pop(context)),
+        actions: [
+          TextButton(
+            onPressed: _isSaving ? null : _save,
+            child: Text('Save', style: TextStyle(color: _isSaving ? theme.subtextColor : theme.primaryColor)),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Medical Information', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.textColor)),
+              const SizedBox(height: 12),
+              TextField(controller: _diagnosisC, style: TextStyle(color: theme.textColor), decoration: InputDecoration(labelText: 'Diagnosis', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+              const SizedBox(height: 12),
+              TextField(controller: _medicationsC, style: TextStyle(color: theme.textColor), decoration: InputDecoration(labelText: 'Medications', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+              const SizedBox(height: 12),
+              TextField(controller: _assignedDoctorC, style: TextStyle(color: theme.textColor), decoration: InputDecoration(labelText: 'Assigned Doctor', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+              const SizedBox(height: 12),
+              TextField(controller: _therapyStartDateC, style: TextStyle(color: theme.textColor), decoration: InputDecoration(labelText: 'Therapy Start Date', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: TextField(controller: _heightC, style: TextStyle(color: theme.textColor), decoration: InputDecoration(labelText: 'Height', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
+                const SizedBox(width: 12),
+                Expanded(child: TextField(controller: _weightC, style: TextStyle(color: theme.textColor), decoration: InputDecoration(labelText: 'Weight', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
+              ]),
+              const SizedBox(height: 24),
+              Row(children: [
+                Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))),
+                const SizedBox(width: 12),
+                Expanded(child: ElevatedButton(onPressed: _isSaving ? null : _save, child: _isSaving ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save'))),
+              ])
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

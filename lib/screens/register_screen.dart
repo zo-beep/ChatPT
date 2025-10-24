@@ -264,8 +264,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           }
 
           if (!existing.exists) {
-            // Create doc with profile fields. Add empty 'role' so field is visible in Console
-            profileData['role'] = '';
+            // Create doc with profile fields. Set default role to 'patient'.
+            profileData['role'] = 'patient';
             await docRef.set(profileData);
             // Visible log for debugging
             print('Created Firestore user doc for ${credential.user!.uid} with profile: $profileData');
@@ -276,6 +276,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // Update profile fields but do not overwrite 'role' if present.
             // To avoid overwriting role, use update which merges provided fields only.
             await docRef.update(profileData);
+            // If the existing document has no role or an empty role, set it to 'patient'.
+            try {
+              final current = await docRef.get();
+              final currentRole = (current.data()?['role'] ?? '').toString().trim();
+              if (currentRole.isEmpty) {
+                await docRef.update({'role': 'patient'});
+                print('Backfilled empty role to patient for ${credential.user!.uid}');
+              }
+            } catch (e) {
+              print('Role backfill check failed: $e');
+            }
             print('Updated Firestore user doc for ${credential.user!.uid} with profile: $profileData');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated in Firestore')));

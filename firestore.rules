@@ -4,7 +4,23 @@ service cloud.firestore {
     // Users documents: users/{uid}
     match /users/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isDoctor(request.auth.token));
-      allow update, delete: if request.auth != null && (request.auth.uid == userId || isDoctor(request.auth.token));
+      
+      allow update: if request.auth != null && 
+        (
+          // Doctors can update all fields
+          isDoctor(request.auth.token) ||
+          // Patients can only update non-medical fields
+          (request.auth.uid == userId && 
+            (
+              // No changes to medical fields if patient is updating
+              !isMedicalFieldChanged(request.resource.data, resource.data) ||
+              // Unless they are empty/null (initial setup)
+              areMedicalFieldsEmpty(resource.data)
+            )
+          )
+        );
+      
+      allow delete: if request.auth != null && (request.auth.uid == userId || isDoctor(request.auth.token));
       allow create: if request.auth != null;
 
       // Subcollection for assignedExercises
@@ -24,6 +40,26 @@ service cloud.firestore {
 
     function isDoctor(token) {
       return token.role == 'doctor' || token.role == 'admin';
+    }
+
+    // Define medical fields that only doctors can modify
+    function getMedicalFields() {
+      return ['diagnosis', 'medications', 'assignedDoctor', 'therapyStartDate', 'height', 'weight'];
+    }
+
+    // Check if any medical fields have been changed
+    function isMedicalFieldChanged(newData, oldData) {
+      let medicalFields = getMedicalFields();
+      return medicalFields.hasAny(newData.keys()) && 
+        medicalFields.hasAny(oldData.keys()) &&
+        medicalFields.any(field => newData[field] != oldData[field]);
+    }
+
+    // Check if medical fields are empty or null
+    function areMedicalFieldsEmpty(data) {
+      let medicalFields = getMedicalFields();
+      return !medicalFields.hasAny(data.keys()) ||
+        medicalFields.all(field => data[field] == null || data[field] == '');
     }
   }
 }
