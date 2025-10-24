@@ -138,19 +138,42 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _userProfile?['name'] ?? 'Surname, First Name',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: theme.textColor,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _userProfile?['name'] ?? 'Surname, First Name',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.textColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Role label (matches doctor dashboard style)
+                        Builder(builder: (context) {
+                          final role = (_userProfile?['role'] ?? '').toString().trim();
+                          final roleLabel = role.isEmpty ? 'Patient' : (role[0].toUpperCase() + role.substring(1));
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              roleLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        }),
                       ],
                     ),
                   ],
