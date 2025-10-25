@@ -5,7 +5,13 @@ import 'package:demo_app/main.dart';
 
 class ManagePatientExerciseScreen extends StatefulWidget {
   final ThemeProvider themeProvider;
-  const ManagePatientExerciseScreen({super.key, required this.themeProvider});
+  final Map<String, dynamic>? specificPatient;
+  
+  const ManagePatientExerciseScreen({
+    super.key, 
+    required this.themeProvider,
+    this.specificPatient,
+  });
 
   @override
   State<ManagePatientExerciseScreen> createState() => _ManagePatientExerciseScreenState();
@@ -55,6 +61,30 @@ class _ManagePatientExerciseScreenState extends State<ManagePatientExerciseScree
   @override
   Widget build(BuildContext context) {
     final theme = widget.themeProvider;
+    
+    // If a specific patient is provided, navigate directly to their exercise management
+    if (widget.specificPatient != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => _UserExerciseManager(
+              user: widget.specificPatient!,
+              themeProvider: widget.themeProvider,
+            ),
+          ),
+        );
+      });
+      return Scaffold(
+        backgroundColor: theme.backgroundColor,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+          ),
+        ),
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Patients'),

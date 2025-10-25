@@ -4,6 +4,7 @@ import 'package:demo_app/screens/more_screen.dart';
 import 'package:demo_app/services/user_service.dart';
 import 'package:demo_app/screens/manage_patient_exercise_screen.dart';
 import 'package:demo_app/screens/manage_patient_records_screen.dart';
+import 'package:demo_app/screens/view_patients_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:demo_app/widgets/change_password_dialog.dart';
@@ -82,62 +83,325 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Edit Information'),
-          content: SingleChildScrollView(
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-                TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
-                TextField(controller: contactController, decoration: const InputDecoration(labelText: 'Contact')),
-                const SizedBox(height: 12),
-                TextField(controller: specializationController, decoration: const InputDecoration(labelText: 'Specialization / Expertise')),
-                TextField(controller: licenseController, decoration: const InputDecoration(labelText: 'License Number')),
-                TextField(controller: yearsController, decoration: const InputDecoration(labelText: 'Years of Experience')),
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        widget.themeProvider.cardColor,
+                        widget.themeProvider.cardColor.withOpacity(0.95),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              widget.themeProvider.primaryColor.withOpacity(0.15),
+                              widget.themeProvider.primaryColor.withOpacity(0.05),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: widget.themeProvider.primaryColor.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.edit_rounded,
+                          size: 20,
+                          color: widget.themeProvider.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Edit Information',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: widget.themeProvider.textColor,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Update your profile details',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: widget.themeProvider.subtextColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: widget.themeProvider.subtextColor,
+                          size: 20,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Form content
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: widget.themeProvider.cardColor,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildEditableInfoRow(
+                            'Full Name',
+                            nameController,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Please enter your full name';
+                              return null;
+                            },
+                          ),
+                          _buildDivider(),
+                          
+                          _buildEditableInfoRow(
+                            'Email Address',
+                            emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Please enter your email';
+                              if (!RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(value)) {
+                                return 'Please enter a valid email address';
+                              }
+                              return null;
+                            },
+                          ),
+                          _buildDivider(),
+                          
+                          _buildEditableInfoRow(
+                            'Contact Number',
+                            contactController,
+                            keyboardType: TextInputType.phone,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Please enter your contact number';
+                              if (!RegExp(r'^\+?[\d\s-]{8,}$').hasMatch(value)) {
+                                return 'Please enter a valid phone number';
+                              }
+                              return null;
+                            },
+                          ),
+                          _buildDivider(),
+                          
+                          _buildEditableInfoRow(
+                            'Specialization / Expertise',
+                            specializationController,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Please enter your specialization';
+                              return null;
+                            },
+                          ),
+                          _buildDivider(),
+                          
+                          _buildEditableInfoRow(
+                            'License Number',
+                            licenseController,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Please enter your license number';
+                              return null;
+                            },
+                          ),
+                          _buildDivider(),
+                          
+                          _buildEditableInfoRow(
+                            'Years of Experience',
+                            yearsController,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) return 'Please enter years of experience';
+                              if (int.tryParse(value) == null) return 'Please enter a valid number';
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // Action buttons
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: widget.themeProvider.backgroundColor.withOpacity(0.5),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                widget.themeProvider.subtextColor.withOpacity(0.1),
+                                widget.themeProvider.subtextColor.withOpacity(0.05),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: widget.themeProvider.subtextColor.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => Navigator.of(context).pop(),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.close_rounded,
+                                    color: widget.themeProvider.subtextColor,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: widget.themeProvider.subtextColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                widget.themeProvider.primaryColor.withOpacity(0.1),
+                                widget.themeProvider.primaryColor.withOpacity(0.05),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: widget.themeProvider.primaryColor.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                final updated = {
+                                  'name': nameController.text.trim(),
+                                  'email': emailController.text.trim(),
+                                  'contactNumber': contactController.text.trim(),
+                                  'specialization': specializationController.text.trim(),
+                                  'licenseNumber': licenseController.text.trim(),
+                                  'yearsOfExperience': yearsController.text.trim(),
+                                };
+
+                                // Update local cache
+                                await UserService.updateUserProfile(updated);
+
+                                // Persist to Firestore
+                                try {
+                                  final user = FirebaseAuth.instance.currentUser;
+                                  if (user != null) {
+                                    final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+                                    await docRef.set(updated, SetOptions(merge: true));
+                                    print('Saved doctor profile to Firestore for ${user.uid}');
+                                  }
+                                } catch (e) {
+                                  print('Failed to save doctor profile to Firestore: $e');
+                                }
+
+                                // Reload local profile and close
+                                if (mounted) {
+                                  _loadProfile();
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.save_rounded,
+                                    color: widget.themeProvider.primaryColor,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Save Changes',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: widget.themeProvider.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final updated = {
-                  'name': nameController.text.trim(),
-                  'email': emailController.text.trim(),
-                  'contactNumber': contactController.text.trim(),
-                  'specialization': specializationController.text.trim(),
-                  'licenseNumber': licenseController.text.trim(),
-                  'yearsOfExperience': yearsController.text.trim(),
-                };
-
-                // Update local cache
-                await UserService.updateUserProfile(updated);
-
-                // Persist to Firestore
-                try {
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user != null) {
-                    final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
-                    await docRef.set(updated, SetOptions(merge: true));
-                    print('Saved doctor profile to Firestore for ${user.uid}');
-                  }
-                } catch (e) {
-                  print('Failed to save doctor profile to Firestore: $e');
-                }
-
-                // Reload local profile and close
-                _loadProfile();
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
         );
       },
     );
@@ -412,6 +676,34 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  // New View Patients button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ViewPatientsScreen(themeProvider: themeProvider),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.people, size: 18),
+                      label: const Text('View Patients'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: themeProvider.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: BorderSide(
+                          color: themeProvider.primaryColor,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -420,7 +712,6 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
       },
     );
   }
-
   Widget _buildInfoTable(ThemeProvider theme, List<List<String>> data) {
     return Container(
       decoration: BoxDecoration(
@@ -471,6 +762,73 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildEditableInfoRow(String label, TextEditingController controller, {String? Function(String?)? validator, TextInputType? keyboardType}) {
+    final theme = widget.themeProvider;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: theme.textColor,
+              ),
+            ),
+          ),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              validator: validator,
+              keyboardType: keyboardType,
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.textColor,
+              ),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: theme.primaryColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: theme.primaryColor.withOpacity(0.3)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: theme.primaryColor),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.red),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.red, width: 2),
+                ),
+                errorStyle: const TextStyle(color: Colors.red),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    final theme = widget.themeProvider;
+    return Divider(
+      color: theme.cardColor.withOpacity(0.2),
+      height: 1,
     );
   }
 }
