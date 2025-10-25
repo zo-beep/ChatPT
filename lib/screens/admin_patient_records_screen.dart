@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:demo_app/main.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class AdminPatientRecordsScreen extends StatefulWidget {
   final ThemeProvider themeProvider;
@@ -22,15 +24,21 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
   }
 
   Future<void> _deletePatient(String uid) async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     try {
       await FirebaseFirestore.instance.collection('users').doc(uid).delete();
       await _loadPatients();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Patient deleted'), backgroundColor: Colors.green));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Patient deleted'), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete patient: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete patient: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -57,9 +65,7 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
       _error = 'Failed to load patient records: $e';
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -84,7 +90,7 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
           child: _isLoading
               ? Center(child: CircularProgressIndicator(color: theme.primaryColor))
               : _error != null
-                  ? Center(child: Text(_error!, style: TextStyle(color: Colors.red)))
+                  ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
                   : _patients.isEmpty
                       ? Center(child: Text('No patient records found', style: TextStyle(color: theme.subtextColor)))
                       : RefreshIndicator(
@@ -112,7 +118,10 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
                                           Expanded(
                                             child: Text(
                                               name,
-                                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.textColor),
+                                              style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: theme.textColor),
                                             ),
                                           ),
                                           Text(email, style: TextStyle(color: theme.subtextColor)),
@@ -133,9 +142,7 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
                                           TextButton(
-                                            onPressed: () {
-                                              _showPatientDetails(p);
-                                            },
+                                            onPressed: () => _showPatientDetails(p),
                                             child: Text('View', style: TextStyle(color: theme.primaryColor)),
                                           ),
                                           const SizedBox(width: 8),
@@ -147,7 +154,8 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
                                                 context: context,
                                                 builder: (ctx) => AlertDialog(
                                                   title: const Text('Confirm delete'),
-                                                  content: Text('Delete patient "${p['name'] ?? 'this patient'}"? This cannot be undone.'),
+                                                  content: Text(
+                                                      'Delete patient "${p['name'] ?? 'this patient'}"? This cannot be undone.'),
                                                   actions: [
                                                     TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
                                                     ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
@@ -155,11 +163,9 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
                                                 ),
                                               );
                                               if (confirmed == true) {
-                                                final uid = p['uid'] ?? null;
+                                                final uid = p['uid'];
                                                 if (uid != null) {
                                                   await _deletePatient(uid.toString());
-                                                } else {
-                                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot delete: missing UID'), backgroundColor: Colors.red));
                                                 }
                                               }
                                             },
@@ -206,10 +212,47 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
               onPressed: () => Navigator.of(context).pop(),
               child: Text('Close', style: TextStyle(color: theme.primaryColor)),
             ),
+            ElevatedButton.icon(
+              onPressed: () async => _printPatientRecord(p),
+              icon: const Icon(Icons.print, size: 18),
+              label: const Text('Print Record'),
+            ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _printPatientRecord(Map<String, dynamic> p) async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        build: (context) => pw.Padding(
+          padding: const pw.EdgeInsets.all(20),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Patient Record',
+                  style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 20),
+              pw.Text('Name: ${p['name'] ?? '—'}'),
+              pw.Text('Email: ${p['email'] ?? '—'}'),
+              pw.Text('Contact: ${p['contactNumber'] ?? '—'}'),
+              pw.Text('Age: ${p['age']?.toString() ?? '—'}'),
+              pw.Text('Gender: ${p['gender'] ?? '—'}'),
+              pw.Text('Diagnosis: ${p['diagnosis'] ?? '—'}'),
+              pw.Text('Medications: ${p['medications'] ?? '—'}'),
+              pw.Text('Assigned Doctor: ${p['assignedDoctor'] ?? '—'}'),
+              pw.SizedBox(height: 30),
+              pw.Text('Generated on: ${DateTime.now()}',
+                  style: const pw.TextStyle(fontSize: 10)),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
   Widget _detailRow(String label, String value, ThemeProvider theme) {
