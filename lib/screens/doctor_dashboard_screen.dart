@@ -67,7 +67,6 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         }
       }
     } catch (e) {
-      print('Role enforcement error on doctor dashboard: $e');
       // If anything goes wrong, be conservative and redirect
       if (mounted) Navigator.pushReplacementNamed(context, '/main');
     }
@@ -361,10 +360,9 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   if (user != null) {
                     final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
                     await docRef.set(updated, SetOptions(merge: true));
-                    print('Saved doctor profile to Firestore for ${user.uid}');
                   }
                 } catch (e) {
-                  print('Failed to save doctor profile to Firestore: $e');
+                  // Handle error silently
                 }
 
                 // Reload local profile and close
@@ -413,7 +411,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     try {
       _profile = UserService.getUserProfile();
     } catch (e) {
-      print('Failed to load user profile: $e');
+      // Handle error silently
     }
     setState(() {});
   }

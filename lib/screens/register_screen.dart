@@ -267,11 +267,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // Create doc with profile fields. Set default role to 'patient'.
             profileData['role'] = 'patient';
             await docRef.set(profileData);
-            // Visible log for debugging
-            print('Created Firestore user doc for ${credential.user!.uid} with profile: $profileData');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile saved to Firestore')));
-            }
           } else {
             // Update profile fields but do not overwrite 'role' if present.
             // To avoid overwriting role, use update which merges provided fields only.
@@ -282,34 +277,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               final currentRole = (current.data()?['role'] ?? '').toString().trim();
               if (currentRole.isEmpty) {
                 await docRef.update({'role': 'patient'});
-                print('Backfilled empty role to patient for ${credential.user!.uid}');
               }
             } catch (e) {
-              print('Role backfill check failed: $e');
-            }
-            print('Updated Firestore user doc for ${credential.user!.uid} with profile: $profileData');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated in Firestore')));
-            }
-          }
-
-          // Read back the document to confirm where data was written and what fields exist.
-          try {
-            final saved = await docRef.get();
-            print('Firestore doc path: ${docRef.path}');
-            print('Firestore doc data: ${saved.data()}');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved to: ${docRef.path}')));
-            }
-          } catch (e) {
-            print('Failed to read back user doc: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to read back user doc: $e')));
+              // Handle error silently
             }
           }
         } catch (e) {
           // Log Firestore write errors (don't block registration)
-          print('Failed to ensure user doc in Firestore: $e');
           if (mounted) {
             _showErrorSnackBar('Failed to save profile to Firestore: $e');
           }

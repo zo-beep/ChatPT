@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
-import 'package:demo_app/screens/login_screen.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final ThemeProvider? themeProvider;
@@ -21,7 +20,6 @@ class OTPVerificationScreen extends StatefulWidget {
 
 class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _otpController = TextEditingController();
   bool _isLoading = false;
   bool _isResending = false;
   int _resendCountdown = 60;
@@ -58,15 +56,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         final currentUser = FirebaseAuth.instance.currentUser;
         
         if (currentUser != null && currentUser.emailVerified) {
-          _showSuccessSnackBar('Email verified successfully!');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => LoginScreen(themeProvider: widget.themeProvider),
-              ),
-            );
-          }
+          _navigateToMainApp();
           return;
         }
       }
@@ -98,18 +88,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     });
   }
 
-  String? _validateOTP(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'OTP is required';
-    }
-    if (value.length != 6) {
-      return 'OTP must be 6 digits';
-    }
-    if (!RegExp(r'^\d{6}$').hasMatch(value)) {
-      return 'OTP must contain only numbers';
-    }
-    return null;
-  }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -137,6 +115,144 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     );
   }
 
+  void _navigateToMainApp() {
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/main');
+    }
+  }
+
+  void _showVerificationErrorDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.orange.shade50,
+                  Colors.orange.shade100,
+                ],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Warning Icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.email_outlined,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Error Title
+                Text(
+                  'Email Not Verified Yet',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange.shade800,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                
+                // Error Message
+                Text(
+                  'Please check your email inbox and click the verification link to complete your registration.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.orange.shade700,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange.shade700,
+                          side: BorderSide(color: Colors.orange.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Try Again',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _resendOTP();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Resend Email',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _verifyOTP() async {
     setState(() {
       _isLoading = true;
@@ -150,17 +266,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         final currentUser = FirebaseAuth.instance.currentUser;
         
         if (currentUser != null && currentUser.emailVerified) {
-          _showSuccessSnackBar('Email verified successfully!');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => LoginScreen(themeProvider: widget.themeProvider),
-              ),
-            );
-          }
+          _navigateToMainApp();
         } else {
-          _showErrorSnackBar('Email not yet verified. Please check your email and click the verification link, then try again.');
+          _showVerificationErrorDialog();
         }
       } else {
         _showErrorSnackBar('No user found. Please try registering again.');
@@ -330,7 +438,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '1. Check your email inbox (and spam folder)\n2. Click the verification link in the email\n3. This app will automatically detect when you\'ve verified your email',
+                                  '1. Check your email inbox (and spam folder)\n2. Click the verification link in the email\n3. You will be automatically logged in',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: theme?.textColor ?? Colors.black87,
@@ -352,7 +460,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'Automatically checking for verification...',
+                                      'Auto-detecting verification...',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: theme?.subtextColor ?? Colors.grey[600],
@@ -390,7 +498,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                                       ),
                                     )
                                   : const Text(
-                                      'Check Verification Status',
+                                      'Check Verification',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -450,11 +558,5 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _otpController.dispose();
-    super.dispose();
   }
 }

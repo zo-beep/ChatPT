@@ -67,7 +67,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       }
     } catch (e) {
       // Non-fatal: fall back to cached profile if online fetch fails
-      print('Failed to hydrate patient profile from Firestore: $e');
     }
   }
 
@@ -590,13 +589,11 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             .collection('users')
             .doc(user.uid)
             .set(profileData, SetOptions(merge: true));
-        
-        print('Saved patient profile to Firestore for ${user.uid}');
       } else {
-        print('No authenticated user; skipping Firestore save');
+        // Handle case where no user is authenticated
       }
     } catch (e) {
-      print('Failed to save patient profile to Firestore: $e');
+      // Handle error silently
     }
 
     // Update local state
