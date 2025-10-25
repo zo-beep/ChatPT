@@ -3,22 +3,25 @@ import 'package:demo_app/main.dart';
 
 class ActionButton extends StatelessWidget {
   final VoidCallback onPressed;
-  final IconData icon;
-  final String label;
-  final Color color;
-  final ThemeProvider theme;
+  final String text;
+  final IconData? icon;
+  final Color? color;
+  final ThemeProvider themeProvider;
+  final bool isSecondary;
 
   const ActionButton({
     Key? key,
     required this.onPressed,
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.theme,
+    required this.text,
+    this.icon,
+    this.color,
+    required this.themeProvider,
+    this.isSecondary = false,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? (isSecondary ? themeProvider.subtextColor : themeProvider.primaryColor);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -27,22 +30,24 @@ class ActionButton extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: effectiveColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: color.withOpacity(0.3),
+              color: effectiveColor.withOpacity(0.3),
               width: 1,
             ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
+              if (icon != null) ...[
+                Icon(icon, color: effectiveColor, size: 20),
+                const SizedBox(width: 8),
+              ],
               Text(
-                label,
+                text,
                 style: TextStyle(
-                  color: color,
+                  color: effectiveColor,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
