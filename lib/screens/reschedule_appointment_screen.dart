@@ -335,44 +335,52 @@ class _RescheduleAppointmentScreenState extends State<RescheduleAppointmentScree
                   ),
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: theme.primaryColor.withOpacity(0.3),
-                      width: 1,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedTime,
-                      hint: Text(
-                        'Select Time',
-                        style: TextStyle(
-                          color: theme.subtextColor,
-                          fontSize: 16,
-                        ),
-                      ),
-                      isExpanded: true,
-                      items: _timeSlots.map((String time) {
-                        return DropdownMenuItem<String>(
-                          value: time,
-                          child: Text(
-                            time,
-                            style: TextStyle(
-                              color: theme.textColor,
-                              fontSize: 16,
+                InkWell(
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: _selectedTime != null 
+                          ? TimeOfDay(
+                              hour: int.parse(_selectedTime!.split(':')[0]),
+                              minute: int.parse(_selectedTime!.split(':')[1]),
+                            )
+                          : TimeOfDay.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: ColorScheme.light(
+                              primary: theme.primaryColor,
                             ),
                           ),
+                          child: child!,
                         );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedTime = newValue;
-                        });
                       },
+                    );
+                    if (time != null) {
+                      setState(() {
+                        _selectedTime = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: theme.primaryColor.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.access_time, color: theme.primaryColor),
+                        const SizedBox(width: 12),
+                        Text(
+                          _selectedTime == null ? 'Select Time' : _selectedTime!,
+                          style: TextStyle(
+                            color: theme.textColor,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

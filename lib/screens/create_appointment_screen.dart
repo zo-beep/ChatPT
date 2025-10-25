@@ -451,48 +451,52 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
   }
 
   Widget _buildTimeSelector(ThemeProvider theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.primaryColor.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: DropdownButtonFormField<String>(
-        value: _selectedTime,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          hintText: 'Select time',
-          hintStyle: TextStyle(
-            color: theme.subtextColor.withOpacity(0.7),
-            fontSize: 14,
-          ),
-        ),
-        dropdownColor: theme.cardColor,
-        style: TextStyle(
-          color: theme.textColor,
-          fontSize: 14,
-        ),
-        items: _timeSlots.map((time) {
-          return DropdownMenuItem<String>(
-            value: time,
-            child: Text(time),
-          );
-        }).toList(),
-        onChanged: (value) {
+    return InkWell(
+      onTap: () async {
+        final time = await showTimePicker(
+          context: context,
+          initialTime: _selectedTime != null 
+              ? TimeOfDay(
+                  hour: int.parse(_selectedTime!.split(':')[0]),
+                  minute: int.parse(_selectedTime!.split(':')[1]),
+                )
+              : TimeOfDay.now(),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.light(
+                  primary: theme.primaryColor,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (time != null) {
           setState(() {
-            _selectedTime = value;
+            _selectedTime = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
           });
-        },
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'Please select a time';
-          }
-          return null;
-        },
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.primaryColor.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.access_time, color: theme.primaryColor),
+            const SizedBox(width: 12),
+            Text(
+              _selectedTime == null ? 'Select Time' : _selectedTime!,
+              style: TextStyle(
+                color: theme.textColor,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
