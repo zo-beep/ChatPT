@@ -3,6 +3,10 @@ import 'package:demo_app/main.dart';
 import 'package:demo_app/widgets/action_button.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+import '../models/appointment.dart';
+import '../services/appointment_service.dart';
+import 'reschedule_appointment_screen.dart';
 
 class RemindersScreen extends StatefulWidget {
   final ThemeProvider themeProvider;
@@ -13,16 +17,47 @@ class RemindersScreen extends StatefulWidget {
   State<RemindersScreen> createState() => _RemindersScreenState();
 }
 
-class _RemindersScreenState extends State<RemindersScreen> {
+class _RemindersScreenState extends State<RemindersScreen> with TickerProviderStateMixin {
   List<Map<String, Object?>> _reminders = [];
   List<bool> _selectedReminders = [];
   final ScrollController _scrollController = ScrollController();
+  late TabController _tabController;
+  String _userRole = 'patient';
+  StreamSubscription<List<Appointment>>? _appointmentsSubscription;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadUserRole();
     _loadReminders();
+    // Mark past appointments as missed when the screen loads
+    AppointmentService.markPastAppointmentsAsMissed();
   }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _appointmentsSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadUserRole() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          setState(() {
+            _userRole = doc.data()?['role'] ?? 'patient';
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user role: $e');
+    }
+  }
+
 
   Future<void> _loadReminders() async {
     try {
@@ -1217,7 +1252,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Reminders',
+          'Reminders & Appointments',
           style: TextStyle(
             color: theme.primaryColor,
             fontSize: 20,
@@ -1225,308 +1260,1000 @@ class _RemindersScreenState extends State<RemindersScreen> {
           ),
         ),
         centerTitle: true,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: theme.primaryColor,
+          labelColor: theme.primaryColor,
+          unselectedLabelColor: theme.subtextColor,
+          tabs: const [
+            Tab(text: 'Reminders'),
+            Tab(text: 'Appointments'),
+          ],
+        ),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(Icons.notifications_active, color: Colors.white, size: 30),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Your Reminders',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.textColor),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Stay on track with your physical therapy',
-                    style: TextStyle(fontSize: 14, color: theme.subtextColor),
-                  ),
-                ],
-              ),
-            ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildRemindersTab(theme),
+          _buildUpcomingAppointmentsTab(theme),
+        ],
+      ),
+    );
+  }
 
-            Expanded(
-              child: _reminders.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.notifications_off, size: 64, color: theme.subtextColor),
-                          const SizedBox(height: 16),
-                          Text('No reminders assigned yet',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: theme.textColor),
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Your doctor will assign exercises, appointments,\nand medication reminders here',
-                            style: TextStyle(fontSize: 14, color: theme.subtextColor),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: _showAddCustomReminderDialog,
-                            icon: const Icon(Icons.add, color: Colors.white),
-                            label: const Text('Create Custom Reminder', style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.primaryColor,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _reminders.length,
-                      itemBuilder: (context, index) {
-                        final reminder = _reminders[index];
-                        final title = reminder['title'] as String? ?? '';
-                        final schedule = reminder['schedule'] as String? ?? '';
-                        final priority = reminder['priority'] as String? ?? '';
-                        final isCompleted = reminder['isCompleted'] as bool? ?? false;
-                        final isSelected = _selectedReminders[index];
-
-                        final source = reminder['source'] as String? ?? 'user';
-                        
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => _toggleReminder(index),
-                              onLongPress: () => _showReminderMenu(index),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: isSelected
-                                      ? theme.primaryColor.withOpacity(0.05)
-                                      : theme.cardColor,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? theme.primaryColor
-                                        : theme.subtextColor.withOpacity(0.1),
-                                    width: isSelected ? 1.5 : 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    // Compact icon
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
-                                        color: _getPriorityColor(priority).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(
-                                        source == 'system' 
-                                            ? Icons.fitness_center
-                                            : priority.toLowerCase() == 'high'
-                                                ? Icons.priority_high
-                                                : priority.toLowerCase() == 'medium'
-                                                    ? Icons.remove
-                                                    : Icons.keyboard_arrow_down,
-                                        color: _getPriorityColor(priority),
-                                        size: 18,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    // Content
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  title,
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isCompleted
-                                                        ? theme.subtextColor
-                                                        : theme.textColor,
-                                                    decoration: isCompleted
-                                                        ? TextDecoration.lineThrough
-                                                        : null,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              // Priority badge
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: _getPriorityColor(priority).withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: Text(
-                                                  priority,
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: _getPriorityColor(priority),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.schedule,
-                                                size: 12,
-                                                color: theme.subtextColor,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Expanded(
-                                                child: Text(
-                                                  schedule,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: theme.subtextColor,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    // Completion checkbox
-                                    Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? theme.primaryColor
-                                              : theme.subtextColor.withOpacity(0.3),
-                                          width: 1.5,
-                                        ),
-                                        color: isSelected
-                                            ? theme.primaryColor
-                                            : Colors.transparent,
-                                      ),
-                                      child: isSelected
-                                          ? const Icon(
-                                              Icons.check,
-                                              color: Colors.white,
-                                              size: 12,
-                                            )
-                                          : null,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-
-            // --- Bottom Buttons ---
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
+  Widget _buildRemindersTab(ThemeProvider theme) {
+    return SafeArea(
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.notifications_active, color: Colors.white, size: 30),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+                const SizedBox(height: 16),
+                Text('Your Reminders',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.textColor),
+                ),
+                const SizedBox(height: 8),
+                Text('Stay on track with your physical therapy',
+                  style: TextStyle(fontSize: 14, color: theme.subtextColor),
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: _reminders.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: ActionButton(
-                            onPressed: _markAsComplete,
-                            icon: Icons.check_circle_outline,
-                            label: 'Complete',
-                            color: Colors.green,
-                            theme: theme,
-                          ),
+                        Icon(Icons.notifications_off, size: 64, color: theme.subtextColor),
+                        const SizedBox(height: 16),
+                        Text('No reminders assigned yet',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: theme.textColor),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ActionButton(
-                            onPressed: _snoozeReminders,
-                            icon: Icons.snooze,
-                            label: 'Snooze',
-                            color: Colors.orange,
-                            theme: theme,
-                          ),
+                        const SizedBox(height: 8),
+                        Text('Your doctor will assign exercises, appointments,\nand medication reminders here',
+                          style: TextStyle(fontSize: 14, color: theme.subtextColor),
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          height: 56,
-                          width: 56,
-                          child: Material(
-                            color: theme.primaryColor,
-                            borderRadius: BorderRadius.circular(16),
-                            child: InkWell(
-                              onTap: _showAddCustomReminderDialog,
-                              borderRadius: BorderRadius.circular(16),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _showAddCustomReminderDialog,
+                          icon: const Icon(Icons.add, color: Colors.white),
+                          label: const Text('Create Custom Reminder', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.primaryColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _reminders.length,
+                    itemBuilder: (context, index) {
+                      final reminder = _reminders[index];
+                      final title = reminder['title'] as String? ?? '';
+                      final schedule = reminder['schedule'] as String? ?? '';
+                      final priority = reminder['priority'] as String? ?? '';
+                      final isCompleted = reminder['isCompleted'] as bool? ?? false;
+                      final isSelected = _selectedReminders[index];
+
+                      final source = reminder['source'] as String? ?? 'user';
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _toggleReminder(index),
+                            onLongPress: () => _showReminderMenu(index),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: isSelected
+                                    ? theme.primaryColor.withOpacity(0.05)
+                                    : theme.cardColor,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? theme.primaryColor
+                                      : theme.subtextColor.withOpacity(0.1),
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.02),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Compact icon
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: _getPriorityColor(priority).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      source == 'system' 
+                                          ? Icons.fitness_center
+                                          : priority.toLowerCase() == 'high'
+                                              ? Icons.priority_high
+                                              : priority.toLowerCase() == 'medium'
+                                                  ? Icons.remove
+                                                  : Icons.keyboard_arrow_down,
+                                      color: _getPriorityColor(priority),
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Content
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                title,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isCompleted
+                                                      ? theme.subtextColor
+                                                      : theme.textColor,
+                                                  decoration: isCompleted
+                                                      ? TextDecoration.lineThrough
+                                                      : null,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Priority badge
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _getPriorityColor(priority).withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                priority,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: _getPriorityColor(priority),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.schedule,
+                                              size: 12,
+                                              color: theme.subtextColor,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                schedule,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: theme.subtextColor,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Completion checkbox
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? theme.primaryColor
+                                            : theme.subtextColor.withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                      color: isSelected
+                                          ? theme.primaryColor
+                                          : Colors.transparent,
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 12,
+                                          )
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+
+          // --- Bottom Buttons ---
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
                 ),
+              ],
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ActionButton(
+                          onPressed: _markAsComplete,
+                          icon: Icons.check_circle_outline,
+                          label: 'Complete',
+                          color: Colors.green,
+                          theme: theme,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ActionButton(
+                          onPressed: _snoozeReminders,
+                          icon: Icons.snooze,
+                          label: 'Snooze',
+                          color: Colors.orange,
+                          theme: theme,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 56,
+                        width: 56,
+                        child: Material(
+                          color: theme.primaryColor,
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
+                            onTap: _showAddCustomReminderDialog,
+                            borderRadius: BorderRadius.circular(16),
+                            child: const Center(
+                              child: Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUpcomingAppointmentsTab(ThemeProvider theme) {
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: theme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: theme.backgroundColor,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          bottom: TabBar(
+            indicatorColor: theme.primaryColor,
+            labelColor: theme.primaryColor,
+            unselectedLabelColor: theme.subtextColor,
+            tabs: const [
+              Tab(text: 'Upcoming'),
+              Tab(text: 'Missed'),
+              Tab(text: 'History'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildUpcomingAppointmentsContent(theme),
+            _buildMissedAppointmentsContent(theme),
+            _buildAppointmentHistoryContent(theme),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildUpcomingAppointmentsContent(ThemeProvider theme) {
+    return SafeArea(
+      child: StreamBuilder<List<Appointment>>(
+        stream: AppointmentService.getUpcomingAppointments(
+          FirebaseAuth.instance.currentUser?.uid ?? '',
+          _userRole,
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(
+              child: CircularProgressIndicator(
+                color: theme.primaryColor,
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: theme.subtextColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading appointments',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: theme.textColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final upcomingAppointments = snapshot.data ?? [];
+
+          if (upcomingAppointments.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.event_available_rounded,
+                    size: 64,
+                    color: theme.subtextColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No upcoming appointments',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: theme.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your upcoming appointments will appear here.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.subtextColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: upcomingAppointments.length,
+            itemBuilder: (context, index) {
+              final appointment = upcomingAppointments[index];
+              return _buildAppointmentCard(appointment, theme);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMissedAppointmentsContent(ThemeProvider theme) {
+    return SafeArea(
+      child: StreamBuilder<List<Appointment>>(
+        stream: AppointmentService.getMissedAppointments(
+          FirebaseAuth.instance.currentUser?.uid ?? '',
+          _userRole,
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(
+              child: CircularProgressIndicator(
+                color: theme.primaryColor,
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: theme.subtextColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading missed appointments',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: theme.textColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final missedAppointments = snapshot.data ?? [];
+
+          if (missedAppointments.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 64,
+                    color: Colors.green,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No missed appointments',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: theme.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Great job! You haven\'t missed any appointments.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.subtextColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: missedAppointments.length,
+            itemBuilder: (context, index) {
+              final appointment = missedAppointments[index];
+              return _buildAppointmentCard(appointment, theme, isMissed: true);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAppointmentHistoryContent(ThemeProvider theme) {
+    return SafeArea(
+      child: StreamBuilder<List<Appointment>>(
+        stream: AppointmentService.getAllAppointments(
+          FirebaseAuth.instance.currentUser?.uid ?? '',
+          _userRole,
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(
+              child: CircularProgressIndicator(
+                color: theme.primaryColor,
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: theme.subtextColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading appointment history',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: theme.textColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final allAppointments = snapshot.data ?? [];
+
+          if (allAppointments.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.event_note_rounded,
+                    size: 64,
+                    color: theme.subtextColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No appointment history',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: theme.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your appointment history will appear here.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.subtextColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: allAppointments.length,
+            itemBuilder: (context, index) {
+              final appointment = allAppointments[index];
+              return _buildAppointmentCard(appointment, theme, showAllDetails: true);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAppointmentCard(Appointment appointment, ThemeProvider theme, {bool isMissed = false, bool showAllDetails = false}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with status
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        appointment.formattedDate,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: theme.textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        appointment.formattedTime,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: theme.subtextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getAppointmentStatusColor(appointment.status).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _getAppointmentStatusColor(appointment.status).withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    appointment.statusDisplayText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _getAppointmentStatusColor(appointment.status),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Person info
+            Row(
+              children: [
+                Icon(
+                  Icons.person_rounded,
+                  size: 16,
+                  color: theme.subtextColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FutureBuilder<Map<String, dynamic>?>(
+                    future: _userRole == 'doctor' 
+                        ? AppointmentService.getDoctorInfo(appointment.patientId)
+                        : AppointmentService.getDoctorInfo(appointment.doctorId),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData && snapshot.data != null) {
+                        return Text(
+                          '${_userRole == 'doctor' ? 'Patient' : 'Doctor'}: ${snapshot.data!['name']}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: theme.textColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      }
+                      return Text(
+                        '${_userRole == 'doctor' ? 'Patient' : 'Doctor'}: Loading...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: theme.subtextColor,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Purpose
+            if (appointment.purpose.isNotEmpty) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.note_rounded,
+                    size: 16,
+                    color: theme.subtextColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      appointment.purpose,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.textColor,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Relative time
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 16,
+                  color: theme.subtextColor,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  appointment.relativeTimeString,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: theme.subtextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+
+            // Action buttons for upcoming appointments
+            if (!isMissed && !showAllDetails) ...[
+              const SizedBox(height: 16),
+              if (appointment.status == 'confirmed') ...[
+                // Regular confirmed appointment actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _rescheduleAppointment(appointment),
+                        icon: const Icon(Icons.schedule_rounded, size: 16),
+                        label: const Text('Request Reschedule'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.withOpacity(0.1),
+                          foregroundColor: Colors.orange,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.orange.withOpacity(0.3)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _markAsCompleted(appointment.id!),
+                        icon: const Icon(Icons.done_all_rounded, size: 16),
+                        label: const Text('Complete'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          foregroundColor: Colors.blue,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.blue.withOpacity(0.3)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (appointment.status == 'pending') ...[
+                // Pending reschedule request actions
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.orange.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule_rounded,
+                            color: Colors.orange,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Reschedule Request Pending',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _confirmReschedule(appointment.id!),
+                              icon: const Icon(Icons.check_rounded, size: 16),
+                              label: const Text('Confirm'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.withOpacity(0.1),
+                                foregroundColor: Colors.green,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: Colors.green.withOpacity(0.3)),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _rejectReschedule(appointment.id!),
+                              icon: const Icon(Icons.close_rounded, size: 16),
+                              label: const Text('Reject'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.withOpacity(0.1),
+                                foregroundColor: Colors.red,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Color _getAppointmentStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'confirmed':
+        return Colors.green;
+      case 'completed':
+        return Colors.blue;
+      case 'canceled':
+        return Colors.red;
+      case 'missed':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _rescheduleAppointment(Appointment appointment) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RescheduleAppointmentScreen(
+          themeProvider: widget.themeProvider,
+          appointment: appointment,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      final confirmationMessage = _userRole == 'doctor' 
+          ? 'Reschedule request sent! Patient will need to confirm.'
+          : 'Reschedule request sent! Doctor will need to confirm.';
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(confirmationMessage),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Future<void> _markAsCompleted(String appointmentId) async {
+    try {
+      await AppointmentService.markAppointmentAsCompleted(appointmentId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Appointment marked as completed!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to mark appointment as completed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmReschedule(String appointmentId) async {
+    try {
+      await AppointmentService.updateAppointmentStatus(appointmentId, 'confirmed');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reschedule request confirmed!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to confirm reschedule: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _rejectReschedule(String appointmentId) async {
+    try {
+      await AppointmentService.updateAppointmentStatus(appointmentId, 'canceled');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reschedule request rejected!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reject reschedule: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

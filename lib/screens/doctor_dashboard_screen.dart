@@ -5,6 +5,7 @@ import 'package:demo_app/services/user_service.dart';
 import 'package:demo_app/screens/manage_patient_exercise_screen.dart';
 import 'package:demo_app/screens/manage_patient_records_screen.dart';
 import 'package:demo_app/screens/view_patients_screen.dart';
+import 'package:demo_app/screens/appointment_management_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:demo_app/widgets/change_password_dialog.dart';
@@ -171,9 +172,9 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           size: 20,
                         ),
                       ),
-                    ],
-                  ),
-                ),
+              ],
+            ),
+          ),
                 
                 // Form content
                 Flexible(
@@ -342,34 +343,34 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () async {
-                                final updated = {
-                                  'name': nameController.text.trim(),
-                                  'email': emailController.text.trim(),
-                                  'contactNumber': contactController.text.trim(),
-                                  'specialization': specializationController.text.trim(),
-                                  'licenseNumber': licenseController.text.trim(),
-                                  'yearsOfExperience': yearsController.text.trim(),
-                                };
+                final updated = {
+                  'name': nameController.text.trim(),
+                  'email': emailController.text.trim(),
+                  'contactNumber': contactController.text.trim(),
+                  'specialization': specializationController.text.trim(),
+                  'licenseNumber': licenseController.text.trim(),
+                  'yearsOfExperience': yearsController.text.trim(),
+                };
 
-                                // Update local cache
-                                await UserService.updateUserProfile(updated);
+                // Update local cache
+                await UserService.updateUserProfile(updated);
 
-                                // Persist to Firestore
-                                try {
-                                  final user = FirebaseAuth.instance.currentUser;
-                                  if (user != null) {
-                                    final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
-                                    await docRef.set(updated, SetOptions(merge: true));
-                                    print('Saved doctor profile to Firestore for ${user.uid}');
-                                  }
-                                } catch (e) {
-                                  print('Failed to save doctor profile to Firestore: $e');
-                                }
+                // Persist to Firestore
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+                    await docRef.set(updated, SetOptions(merge: true));
+                    print('Saved doctor profile to Firestore for ${user.uid}');
+                  }
+                } catch (e) {
+                  print('Failed to save doctor profile to Firestore: $e');
+                }
 
-                                // Reload local profile and close
+                // Reload local profile and close
                                 if (mounted) {
-                                  _loadProfile();
-                                  Navigator.of(context).pop();
+                _loadProfile();
+                Navigator.of(context).pop();
                                 }
                               },
                               borderRadius: BorderRadius.circular(12),
@@ -704,6 +705,36 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  // Appointment Management button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AppointmentManagementScreen(themeProvider: themeProvider),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.calendar_today, size: 18),
+                      label: const Text('Manage Appointments'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: themeProvider.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: BorderSide(
+                          color: themeProvider.primaryColor,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
