@@ -349,7 +349,7 @@ class _AppointmentManagementScreenState extends State<AppointmentManagementScree
             // Action buttons
             Row(
               children: [
-                if (appointment.status == 'pending') ...[
+                if (appointment.status == 'pending' && _shouldShowRescheduleActions(appointment)) ...[
                   Expanded(
                     child: _buildActionButton(
                       'Confirm',
@@ -491,5 +491,17 @@ class _AppointmentManagementScreenState extends State<AppointmentManagementScree
         ),
       );
     }
+  }
+
+  // Helper method to determine if the current user should see reschedule actions
+  bool _shouldShowRescheduleActions(Appointment appointment) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return false;
+    
+    // If no reschedule request was made, show actions to everyone (fallback)
+    if (appointment.rescheduleRequestedBy == null) return true;
+    
+    // Show actions only to the user who didn't request the reschedule
+    return appointment.rescheduleRequestedBy != currentUser.uid;
   }
 }

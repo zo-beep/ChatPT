@@ -10,6 +10,7 @@ class Appointment {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? rescheduleRequestedBy; // Track who requested the reschedule
 
   Appointment({
     this.id,
@@ -21,6 +22,7 @@ class Appointment {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.rescheduleRequestedBy,
   });
 
   // Convert Appointment to Map for Firestore
@@ -34,6 +36,7 @@ class Appointment {
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'rescheduleRequestedBy': rescheduleRequestedBy,
     };
   }
 
@@ -49,6 +52,7 @@ class Appointment {
       status: map['status'] ?? 'pending',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      rescheduleRequestedBy: map['rescheduleRequestedBy'],
     );
   }
 
@@ -63,6 +67,7 @@ class Appointment {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? rescheduleRequestedBy,
   }) {
     return Appointment(
       id: id ?? this.id,
@@ -74,6 +79,7 @@ class Appointment {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      rescheduleRequestedBy: rescheduleRequestedBy ?? this.rescheduleRequestedBy,
     );
   }
 

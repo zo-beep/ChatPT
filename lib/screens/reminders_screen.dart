@@ -2074,81 +2074,117 @@ class _RemindersScreenState extends State<RemindersScreen> with TickerProviderSt
                 ),
               ] else if (appointment.status == 'pending') ...[
                 // Pending reschedule request actions
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.orange.withOpacity(0.3),
-                      width: 1,
+                // Only show confirm/reject buttons to the user who didn't request the reschedule
+                if (_shouldShowRescheduleActions(appointment)) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.orange.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.schedule_rounded,
+                              color: Colors.orange,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Reschedule Request Pending',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _confirmReschedule(appointment.id!),
+                                icon: const Icon(Icons.check_rounded, size: 16),
+                                label: const Text('Confirm'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.withOpacity(0.1),
+                                  foregroundColor: Colors.green,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(color: Colors.green.withOpacity(0.3)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _rejectReschedule(appointment.id!),
+                                icon: const Icon(Icons.close_rounded, size: 16),
+                                label: const Text('Reject'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.withOpacity(0.1),
+                                  foregroundColor: Colors.red,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.schedule_rounded,
-                            color: Colors.orange,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Reschedule Request Pending',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.orange.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
+                ] else ...[
+                  // Show waiting message for the user who requested the reschedule
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.blue.withOpacity(0.3),
+                        width: 1,
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _confirmReschedule(appointment.id!),
-                              icon: const Icon(Icons.check_rounded, size: 16),
-                              label: const Text('Confirm'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green.withOpacity(0.1),
-                                foregroundColor: Colors.green,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.green.withOpacity(0.3)),
-                                ),
-                              ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.hourglass_empty_rounded,
+                          color: Colors.blue,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Waiting for ${_getOtherPartyRole(appointment)} to confirm reschedule',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue.shade700,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _rejectReschedule(appointment.id!),
-                              icon: const Icon(Icons.close_rounded, size: 16),
-                              label: const Text('Reject'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red.withOpacity(0.1),
-                                foregroundColor: Colors.red,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Colors.red.withOpacity(0.3)),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ],
           ],
@@ -2255,5 +2291,34 @@ class _RemindersScreenState extends State<RemindersScreen> with TickerProviderSt
         ),
       );
     }
+  }
+
+  // Helper method to determine if the current user should see reschedule actions
+  bool _shouldShowRescheduleActions(Appointment appointment) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return false;
+    
+    // If no reschedule request was made, show actions to everyone (fallback)
+    if (appointment.rescheduleRequestedBy == null) return true;
+    
+    // Show actions only to the user who didn't request the reschedule
+    return appointment.rescheduleRequestedBy != currentUser.uid;
+  }
+
+  // Helper method to get the role of the other party for display
+  String _getOtherPartyRole(Appointment appointment) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return 'other party';
+    
+    // If current user is the patient, the other party is the doctor
+    if (currentUser.uid == appointment.patientId) {
+      return 'doctor';
+    }
+    // If current user is the doctor, the other party is the patient
+    else if (currentUser.uid == appointment.doctorId) {
+      return 'patient';
+    }
+    
+    return 'other party';
   }
 }

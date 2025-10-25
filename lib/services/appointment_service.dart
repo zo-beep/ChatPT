@@ -20,12 +20,18 @@ class AppointmentService {
   // Reschedule an appointment
   static Future<void> rescheduleAppointment(String appointmentId, DateTime newDate, String newTime, String userRole) async {
     try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
       // Set status to pending for confirmation when rescheduled
       // Patient rescheduling needs doctor confirmation, doctor rescheduling needs patient confirmation
       await _firestore.collection('appointments').doc(appointmentId).update({
         'date': Timestamp.fromDate(newDate),
         'time': newTime,
         'status': 'pending', // Always set to pending for confirmation
+        'rescheduleRequestedBy': currentUser.uid, // Track who requested the reschedule
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -386,10 +392,17 @@ class AppointmentService {
   // Update appointment status
   static Future<void> updateAppointmentStatus(String appointmentId, String status) async {
     try {
-      await _firestore.collection('appointments').doc(appointmentId).update({
+      final updateData = {
         'status': status,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      // Clear rescheduleRequestedBy when appointment is confirmed or rejected
+      if (status == 'confirmed' || status == 'canceled') {
+        updateData['rescheduleRequestedBy'] = FieldValue.delete();
+      }
+      
+      await _firestore.collection('appointments').doc(appointmentId).update(updateData);
     } catch (e) {
       print('Error updating appointment status: $e');
       throw Exception('Failed to update appointment status');
