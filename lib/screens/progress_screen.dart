@@ -77,28 +77,368 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   List<Map<String, dynamic>> _buildChartDataFromHistory(
       List<Map<String, dynamic>> history) {
-    final Map<String, int> dayTotals = {
-      'M': 0,
-      'T': 0,
-      'W': 0,
-      'Th': 0,
-      'F': 0,
-      'S': 0,
-      'Su': 0
-    };
+    switch (_selectedTimeRange) {
+      case 'Daily':
+        return _buildDailyChartData(history);
+      case 'Weekly':
+        return _buildWeeklyChartData(history);
+      case 'Monthly':
+        return _buildMonthlyChartData(history);
+      case 'Yearly':
+        return _buildYearlyChartData(history);
+      default:
+        return _buildWeeklyChartData(history);
+    }
+  }
 
+  List<Map<String, dynamic>> _buildDailyChartData(List<Map<String, dynamic>> history) {
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
+    // Find the earliest hour with activity today
+    int earliestHour = 24;
+    int latestHour = -1;
+    
     for (var ex in history) {
       final completedAt = ex['completedAt'];
       if (completedAt == null || completedAt is! DateTime) continue;
-      final day = completedAt.weekday;
-      final dayKey = ['M', 'T', 'W', 'Th', 'F', 'S', 'Su'][day - 1];
-      dayTotals[dayKey] =
-          (dayTotals[dayKey] ?? 0) + _durationToInt(ex['duration']);
+      
+      if (completedAt.isAfter(todayStart) && completedAt.isBefore(todayEnd)) {
+        if (completedAt.hour < earliestHour) earliestHour = completedAt.hour;
+        if (completedAt.hour > latestHour) latestHour = completedAt.hour;
+      }
+    }
+
+    // If no activities today, show empty chart
+    if (earliestHour == 24) {
+      return [];
+    }
+
+    // Create chart data ensuring at least 5 slots
+    final Map<String, int> hourTotals = {};
+    
+    // Calculate range to ensure at least 5 slots
+    int startHour = earliestHour;
+    int endHour = latestHour;
+    
+    // If we have less than 5 slots, expand the range
+    if ((endHour - startHour + 1) < 5) {
+      final neededSlots = 5;
+      final currentSlots = endHour - startHour + 1;
+      final extraSlots = neededSlots - currentSlots;
+      
+      // Distribute extra slots evenly before and after
+      final beforeSlots = extraSlots ~/ 2;
+      final afterSlots = extraSlots - beforeSlots;
+      
+      startHour = (startHour - beforeSlots).clamp(0, 23);
+      endHour = (endHour + afterSlots).clamp(0, 23);
+    }
+    
+    // Add padding around the range
+    startHour = (startHour - 1).clamp(0, 23);
+    endHour = (endHour + 1).clamp(0, 23);
+    
+    for (int hour = startHour; hour <= endHour; hour++) {
+      hourTotals['${hour.toString().padLeft(2, '0')}:00'] = 0;
+    }
+
+    // Populate with actual data
+    for (var ex in history) {
+      final completedAt = ex['completedAt'];
+      if (completedAt == null || completedAt is! DateTime) continue;
+      
+      if (completedAt.isAfter(todayStart) && completedAt.isBefore(todayEnd)) {
+        final hourKey = '${completedAt.hour.toString().padLeft(2, '0')}:00';
+        hourTotals[hourKey] = (hourTotals[hourKey] ?? 0) + _durationToInt(ex['duration']);
+      }
+    }
+
+    return hourTotals.entries
+        .map((e) => {'label': e.key, 'value': e.value, 'isActive': e.value > 0})
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _buildWeeklyChartData(List<Map<String, dynamic>> history) {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final weekEnd = weekStart.add(const Duration(days: 7));
+
+    // Find days with activity
+    final Set<int> activeDays = {};
+    for (var ex in history) {
+      final completedAt = ex['completedAt'];
+      if (completedAt == null || completedAt is! DateTime) continue;
+      
+      if (completedAt.isAfter(weekStart) && completedAt.isBefore(weekEnd)) {
+        activeDays.add(completedAt.weekday);
+      }
+    }
+
+    // If no activities this week, show empty chart
+    if (activeDays.isEmpty) {
+      return [];
+    }
+
+    // Create chart data ensuring at least 5 slots
+    final Map<String, int> dayTotals = {};
+    final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    // Find range of active days
+    final minDay = activeDays.reduce((a, b) => a < b ? a : b);
+    final maxDay = activeDays.reduce((a, b) => a > b ? a : b);
+    
+    // Calculate range to ensure at least 5 slots
+    int startDay = minDay;
+    int endDay = maxDay;
+    
+    // If we have less than 5 slots, expand the range
+    if ((endDay - startDay + 1) < 5) {
+      final neededSlots = 5;
+      final currentSlots = endDay - startDay + 1;
+      final extraSlots = neededSlots - currentSlots;
+      
+      // Distribute extra slots evenly before and after
+      final beforeSlots = extraSlots ~/ 2;
+      final afterSlots = extraSlots - beforeSlots;
+      
+      startDay = (startDay - beforeSlots).clamp(1, 7);
+      endDay = (endDay + afterSlots).clamp(1, 7);
+    }
+    
+    // Add padding around the range
+    startDay = (startDay - 1).clamp(1, 7);
+    endDay = (endDay + 1).clamp(1, 7);
+    
+    for (int day = startDay; day <= endDay; day++) {
+      dayTotals[dayNames[day - 1]] = 0;
+    }
+
+    // Populate with actual data
+    for (var ex in history) {
+      final completedAt = ex['completedAt'];
+      if (completedAt == null || completedAt is! DateTime) continue;
+      
+      if (completedAt.isAfter(weekStart) && completedAt.isBefore(weekEnd)) {
+        final dayKey = dayNames[completedAt.weekday - 1];
+        dayTotals[dayKey] = (dayTotals[dayKey] ?? 0) + _durationToInt(ex['duration']);
+      }
     }
 
     return dayTotals.entries
         .map((e) => {'label': e.key, 'value': e.value, 'isActive': e.value > 0})
         .toList();
+  }
+
+  List<Map<String, dynamic>> _buildMonthlyChartData(List<Map<String, dynamic>> history) {
+    final now = DateTime.now();
+    
+    // Find months with activity
+    final Set<int> activeMonths = {};
+    for (var ex in history) {
+      final completedAt = ex['completedAt'];
+      if (completedAt == null || completedAt is! DateTime) continue;
+      
+      // Only include exercises from the last 12 months
+      final twelveMonthsAgo = DateTime(now.year, now.month - 11, 1);
+      if (completedAt.isAfter(twelveMonthsAgo)) {
+        activeMonths.add(completedAt.month);
+      }
+    }
+
+    // If no activities in last 12 months, show empty chart
+    if (activeMonths.isEmpty) {
+      return [];
+    }
+
+    // Create chart data ensuring at least 5 slots
+    final Map<String, int> monthTotals = {};
+    
+    // Find range of active months
+    final minMonth = activeMonths.reduce((a, b) => a < b ? a : b);
+    final maxMonth = activeMonths.reduce((a, b) => a > b ? a : b);
+    
+    // Calculate range to ensure at least 5 slots
+    int startMonth = minMonth;
+    int endMonth = maxMonth;
+    
+    // If we have less than 5 slots, expand the range
+    if ((endMonth - startMonth + 1) < 5) {
+      final neededSlots = 5;
+      final currentSlots = endMonth - startMonth + 1;
+      final extraSlots = neededSlots - currentSlots;
+      
+      // Distribute extra slots evenly before and after
+      final beforeSlots = extraSlots ~/ 2;
+      final afterSlots = extraSlots - beforeSlots;
+      
+      startMonth = (startMonth - beforeSlots).clamp(1, 12);
+      endMonth = (endMonth + afterSlots).clamp(1, 12);
+    }
+    
+    // Add padding around the range
+    startMonth = (startMonth - 1).clamp(1, 12);
+    endMonth = (endMonth + 1).clamp(1, 12);
+    
+    for (int month = startMonth; month <= endMonth; month++) {
+      monthTotals[_getMonthAbbreviation(month)] = 0;
+    }
+
+    // Populate with actual data
+    for (var ex in history) {
+      final completedAt = ex['completedAt'];
+      if (completedAt == null || completedAt is! DateTime) continue;
+      
+      final twelveMonthsAgo = DateTime(now.year, now.month - 11, 1);
+      if (completedAt.isAfter(twelveMonthsAgo)) {
+        final monthKey = _getMonthAbbreviation(completedAt.month);
+        monthTotals[monthKey] = (monthTotals[monthKey] ?? 0) + _durationToInt(ex['duration']);
+      }
+    }
+
+    return monthTotals.entries
+        .map((e) => {'label': e.key, 'value': e.value, 'isActive': e.value > 0})
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _buildYearlyChartData(List<Map<String, dynamic>> history) {
+    final now = DateTime.now();
+    
+    // Find years with activity
+    final Set<int> activeYears = {};
+    for (var ex in history) {
+      final completedAt = ex['completedAt'];
+      if (completedAt == null || completedAt is! DateTime) continue;
+      
+      // Only include exercises from the last 5 years
+      final fiveYearsAgo = DateTime(now.year - 4, 1, 1);
+      if (completedAt.isAfter(fiveYearsAgo)) {
+        activeYears.add(completedAt.year);
+      }
+    }
+
+    // If no activities in last 5 years, show empty chart
+    if (activeYears.isEmpty) {
+      return [];
+    }
+
+    // Create chart data ensuring at least 5 slots
+    final Map<String, int> yearTotals = {};
+    
+    // Find range of active years
+    final minYear = activeYears.reduce((a, b) => a < b ? a : b);
+    final maxYear = activeYears.reduce((a, b) => a > b ? a : b);
+    
+    // Calculate range to ensure at least 5 slots
+    int startYear = minYear;
+    int endYear = maxYear;
+    
+    // If we have less than 5 slots, expand the range
+    if ((endYear - startYear + 1) < 5) {
+      final neededSlots = 5;
+      final currentSlots = endYear - startYear + 1;
+      final extraSlots = neededSlots - currentSlots;
+      
+      // Distribute extra slots evenly before and after
+      final beforeSlots = extraSlots ~/ 2;
+      final afterSlots = extraSlots - beforeSlots;
+      
+      startYear = startYear - beforeSlots;
+      endYear = endYear + afterSlots;
+    }
+    
+    // Add padding around the range
+    startYear = startYear - 1;
+    endYear = endYear + 1;
+    
+    for (int year = startYear; year <= endYear; year++) {
+      yearTotals[year.toString()] = 0;
+    }
+
+    // Populate with actual data
+    for (var ex in history) {
+      final completedAt = ex['completedAt'];
+      if (completedAt == null || completedAt is! DateTime) continue;
+      
+      final fiveYearsAgo = DateTime(now.year - 4, 1, 1);
+      if (completedAt.isAfter(fiveYearsAgo)) {
+        final yearKey = completedAt.year.toString();
+        yearTotals[yearKey] = (yearTotals[yearKey] ?? 0) + _durationToInt(ex['duration']);
+      }
+    }
+
+    return yearTotals.entries
+        .map((e) => {'label': e.key, 'value': e.value, 'isActive': e.value > 0})
+        .toList();
+  }
+
+  String _getMonthAbbreviation(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
+  Map<String, dynamic> _calculateTimeRangeStats(List<Map<String, dynamic>> history, String timeRange) {
+    final now = DateTime.now();
+    int daysActive = 0;
+    int progressPercentage = 0;
+
+    switch (timeRange) {
+      case 'Daily':
+        final today = DateTime(now.year, now.month, now.day);
+        final todayEnd = today.add(const Duration(days: 1));
+        final todayActivities = history.where((h) {
+          final completedAt = h['completedAt'] as DateTime?;
+          return completedAt != null && completedAt.isAfter(today) && completedAt.isBefore(todayEnd);
+        }).toList();
+        daysActive = todayActivities.isNotEmpty ? 1 : 0;
+        progressPercentage = todayActivities.isNotEmpty ? 100 : 0;
+        break;
+
+      case 'Weekly':
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        final weekEnd = weekStart.add(const Duration(days: 7));
+        final weekActivities = history.where((h) {
+          final completedAt = h['completedAt'] as DateTime?;
+          return completedAt != null && completedAt.isAfter(weekStart) && completedAt.isBefore(weekEnd);
+        }).toList();
+        final uniqueDays = weekActivities.map((h) => (h['completedAt'] as DateTime).day).toSet();
+        daysActive = uniqueDays.length;
+        progressPercentage = daysActive > 0 ? ((daysActive / 7) * 100).round() : 0;
+        break;
+
+      case 'Monthly':
+        final monthStart = DateTime(now.year, now.month, 1);
+        final monthEnd = DateTime(now.year, now.month + 1, 1);
+        final monthActivities = history.where((h) {
+          final completedAt = h['completedAt'] as DateTime?;
+          return completedAt != null && completedAt.isAfter(monthStart) && completedAt.isBefore(monthEnd);
+        }).toList();
+        final uniqueDays = monthActivities.map((h) => (h['completedAt'] as DateTime).day).toSet();
+        daysActive = uniqueDays.length;
+        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+        progressPercentage = daysActive > 0 ? ((daysActive / daysInMonth) * 100).round() : 0;
+        break;
+
+      case 'Yearly':
+        final yearStart = DateTime(now.year, 1, 1);
+        final yearEnd = DateTime(now.year + 1, 1, 1);
+        final yearActivities = history.where((h) {
+          final completedAt = h['completedAt'] as DateTime?;
+          return completedAt != null && completedAt.isAfter(yearStart) && completedAt.isBefore(yearEnd);
+        }).toList();
+        final uniqueDays = yearActivities.map((h) => (h['completedAt'] as DateTime).day).toSet();
+        daysActive = uniqueDays.length;
+        final daysInYear = DateTime(now.year, 12, 31).difference(DateTime(now.year, 1, 1)).inDays + 1;
+        progressPercentage = daysActive > 0 ? ((daysActive / daysInYear) * 100).round() : 0;
+        break;
+    }
+
+    return {
+      'daysActive': daysActive,
+      'progressPercentage': progressPercentage.clamp(0, 100),
+    };
   }
 
   @override
@@ -151,13 +491,6 @@ class _ProgressScreenState extends State<ProgressScreen>
                   .toList() ??
               [];
 
-          final int totalExercises = allAssigned.length;
-          final int completedAssignedCount =
-              allAssigned.where((a) => a['completed'] == true).length;
-          final int progressPercentage = totalExercises > 0
-              ? ((completedAssignedCount / totalExercises) * 100).round()
-              : 0;
-
           final int totalMinutesFromAssigned = allAssigned.fold<int>(
               0, (sum, a) => sum + _durationToInt(a['duration']));
 
@@ -193,8 +526,9 @@ class _ProgressScreenState extends State<ProgressScreen>
                   totalMinutesFromHistory > 0 ? totalMinutesFromHistory : totalMinutesFromAssigned;
 
               final chartData = _buildChartDataFromHistory(historyList);
-              final daysActive = historyList.isNotEmpty ? 1 : 0;
-              final safeProgress = progressPercentage.clamp(0, 100);
+              final timeRangeStats = _calculateTimeRangeStats(historyList, _selectedTimeRange);
+              final daysActive = timeRangeStats['daysActive'] as int;
+              final safeProgress = timeRangeStats['progressPercentage'] as int;
 
               return LayoutBuilder(
                 builder: (context, constraints) {
@@ -331,32 +665,83 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   Widget _buildChart(List<Map<String, dynamic>> chartData, double availableWidth) {
     const chartHeight = 200.0;
-    final barWidth = 32.0;
-    final spacing = 18.0;
 
-    final totalWidth = (chartData.length * (barWidth + spacing)) + 50;
-    final chartWidth = totalWidth < availableWidth ? availableWidth : totalWidth;
+    // Check if chart is empty
+    final hasData = chartData.any((item) => item['value'] > 0);
+
+    if (!hasData) {
+      return _buildEmptyChart();
+    }
 
     final maxValue = chartData.fold<int>(
         0, (max, item) => item['value'] > max ? item['value'] as int : max);
 
+    // Calculate dimensions for 5 visible slots
+    final visibleSlots = 5;
+    final slotWidth = (availableWidth - 40) / visibleSlots; // 40px for padding
+
     return SizedBox(
-      height: chartHeight + 60, // extra padding to prevent vertical overflow
+      height: chartHeight + 60,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: SizedBox(
-          width: chartWidth,
+          width: chartData.length * slotWidth,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: chartData.map((item) {
               final heightPercent = maxValue > 0
                   ? (item['value'] as int) / maxValue * chartHeight
                   : 0.0;
-              return _buildBar(
-                  item['label'], heightPercent, item['isActive'] ?? false, item['value']);
+              return SizedBox(
+                width: slotWidth,
+                child: _buildBar(
+                    item['label'], heightPercent, item['isActive'] ?? false, item['value']),
+              );
             }).toList(),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyChart() {
+    return Container(
+      height: 260,
+      decoration: BoxDecoration(
+        color: widget.themeProvider.backgroundColor.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: widget.themeProvider.primaryColor.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.bar_chart_outlined,
+              size: 48,
+              color: widget.themeProvider.subtextColor.withOpacity(0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No data available for ${_selectedTimeRange.toLowerCase()} view',
+              style: TextStyle(
+                fontSize: 14,
+                color: widget.themeProvider.subtextColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Complete some exercises to see your progress',
+              style: TextStyle(
+                fontSize: 12,
+                color: widget.themeProvider.subtextColor.withOpacity(0.7),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -554,6 +939,9 @@ class _ProgressScreenState extends State<ProgressScreen>
   }
 
   Widget _buildBar(String label, double heightPercent, bool isActive, int value) {
+    final fontSize = _selectedTimeRange == 'Daily' ? 10.0 : 12.0;
+    final labelFontSize = _selectedTimeRange == 'Daily' ? 10.0 : 12.0;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -561,21 +949,23 @@ class _ProgressScreenState extends State<ProgressScreen>
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: EdgeInsets.symmetric(
+                horizontal: 4, 
+                vertical: 2
+              ),
               decoration: BoxDecoration(
                   color: widget.themeProvider.primaryColor,
                   borderRadius: BorderRadius.circular(4)),
               child: Text('$value',
-                  style: const TextStyle(
-                      fontSize: 10,
+                  style: TextStyle(
+                      fontSize: fontSize,
                       color: Colors.white,
                       fontWeight: FontWeight.bold)),
             ),
           ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          width: 24,
+          width: double.infinity,
           height: heightPercent,
           decoration: BoxDecoration(
             color: isActive
@@ -587,7 +977,7 @@ class _ProgressScreenState extends State<ProgressScreen>
         const SizedBox(height: 8),
         Text(label,
             style: TextStyle(
-                fontSize: 12,
+                fontSize: labelFontSize,
                 color: widget.themeProvider.subtextColor,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
       ],
