@@ -53,14 +53,13 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .where('role', isEqualTo: 'patient')
           .get();
 
       _patients = snapshot.docs.map((d) {
         final data = d.data();
         data['uid'] = d.id;
         return data;
-      }).toList();
+      }).where((user) => user['role'] != 'doctor').toList();
     } catch (e) {
       _error = 'Failed to load patient records: $e';
     } finally {

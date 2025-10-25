@@ -31,8 +31,11 @@ class _ManagePatientExerciseScreenState extends State<ManagePatientExerciseScree
   Future<void> _loadUsers() async {
     setState(() => _loadingUsers = true);
     try {
-      final snap = await FirebaseFirestore.instance.collection('users').limit(100).get();
-  _users = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .limit(100)
+          .get();
+      _users = snap.docs.map((d) => {'id': d.id, ...d.data()}).where((user) => user['role'] != 'doctor').toList();
     } catch (e) {
       print('Failed to load users: $e');
       _users = [];

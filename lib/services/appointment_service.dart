@@ -314,16 +314,18 @@ class AppointmentService {
         doctorName = doctorDoc.data()?['name'];
       }
 
-      // Query for patients with role 'patient'
+      // Query for all users except doctors
       final querySnapshot = await _firestore
           .collection('users')
-          .where('role', isEqualTo: 'patient')
           .get();
 
       List<Map<String, dynamic>> patients = [];
 
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
+        // Skip users with doctor role
+        if (data['role'] == 'doctor') continue;
+        
         final assignedDoctor = data['assignedDoctor'];
         
         // Check if this patient is assigned to the current doctor

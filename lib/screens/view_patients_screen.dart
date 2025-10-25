@@ -68,23 +68,25 @@ class _ViewPatientsScreenState extends State<ViewPatientsScreen> with TickerProv
   Future<void> _loadPatients() async {
     setState(() => _isLoading = true);
     try {
-      // Get all patients (users with role 'patient')
+      // Get all users except doctors
       final snap = await FirebaseFirestore.instance
           .collection('users')
-          .where('role', isEqualTo: 'patient')
           .limit(100)
           .get();
       
       List<Map<String, dynamic>> patients = [];
       
       for (var doc in snap.docs) {
-        final patientData = doc.data();
-        patientData['uid'] = doc.id;
+        final userData = doc.data();
+        // Skip users with doctor role
+        if (userData['role'] == 'doctor') continue;
+        
+        userData['uid'] = doc.id;
         
         // Get patient progress data
         final progressData = await _getPatientProgress(doc.id);
         patients.add({
-          ...patientData,
+          ...userData,
           ...progressData,
         });
       }

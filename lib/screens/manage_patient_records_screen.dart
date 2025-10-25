@@ -55,7 +55,7 @@ class _ManagePatientRecordsScreenState extends State<ManagePatientRecordsScreen>
           // Include other fields needed for filtering/display
           ...data,
         };
-      }).toList();
+      }).where((user) => user['role'] != 'doctor').toList();
       
       // Initial sort by name
       _users.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
