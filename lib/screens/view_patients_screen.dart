@@ -1224,9 +1224,9 @@ class _ViewPatientsScreenState extends State<ViewPatientsScreen> with TickerProv
     );
   }
 
-  void _openPatientRecords(Map<String, dynamic> patient) {
+  void _openPatientRecords(Map<String, dynamic> patient) async {
     // Navigate to record management for specific patient
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ManagePatientRecordsScreen(
@@ -1235,6 +1235,11 @@ class _ViewPatientsScreenState extends State<ViewPatientsScreen> with TickerProv
         ),
       ),
     );
+    
+    // Refresh patient data when returning from record editor
+    if (result == true) {
+      await _loadPatients();
+    }
   }
 }
 

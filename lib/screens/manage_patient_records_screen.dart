@@ -129,8 +129,8 @@ class _ManagePatientRecordsScreenState extends State<ManagePatientRecordsScreen>
     
     // If a specific patient is provided, navigate directly to their record editor
     if (widget.specificPatient != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacement(
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => _PatientRecordEditor(
@@ -139,6 +139,14 @@ class _ManagePatientRecordsScreenState extends State<ManagePatientRecordsScreen>
             ),
           ),
         );
+        
+        // If data was saved, refresh the data and navigate back to view patients
+        if (result == true) {
+          await _loadUsers();
+          Navigator.pop(context, true); // Return true to indicate data was updated
+        } else {
+          Navigator.pop(context, false); // Return false to indicate no changes
+        }
       });
       return Scaffold(
         backgroundColor: theme.backgroundColor,
@@ -465,7 +473,7 @@ class _PatientRecordEditorState extends State<_PatientRecordEditor> {
     try {
       await FirebaseFirestore.instance.collection('users').doc(userId).set(data, SetOptions(merge: true));
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Patient record saved'), backgroundColor: Colors.green));
-      Navigator.pop(context);
+      Navigator.pop(context, true); // Return true to indicate data was saved
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e'), backgroundColor: Colors.red));
     } finally {
