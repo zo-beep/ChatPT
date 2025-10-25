@@ -342,6 +342,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () async {
+                final user = FirebaseAuth.instance.currentUser;
                 final updated = {
                   'name': nameController.text.trim(),
                   'email': emailController.text.trim(),
@@ -349,6 +350,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   'specialization': specializationController.text.trim(),
                   'licenseNumber': licenseController.text.trim(),
                   'yearsOfExperience': yearsController.text.trim(),
+                  'doctorId': user?.uid ?? '', // Add doctorId field
                 };
 
                 // Update local cache

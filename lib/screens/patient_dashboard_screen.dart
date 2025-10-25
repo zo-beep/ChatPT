@@ -563,9 +563,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       _isEditing = false;
     });
     
+    final user = FirebaseAuth.instance.currentUser;
     final profileData = {
       'name': _controllers['name']?.text ?? '',
-      'patientId': _controllers['patientId']?.text ?? '',
+      'patientId': user?.uid ?? '', // Use Firebase Auth UID as patientId
       'age': int.tryParse(_controllers['age']?.text ?? ''),
       'gender': _controllers['gender']?.text ?? '',
       'contactNumber': _controllers['contactNumber']?.text ?? '',

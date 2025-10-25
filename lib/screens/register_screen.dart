@@ -253,6 +253,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             'name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
             'contactNumber': _contactController.text.trim(),
             'gender': _selectedGender,
+            'patientId': credential.user!.uid, // Set patientId to Firebase Auth UID
             'createdAt': FieldValue.serverTimestamp(),
           };
 

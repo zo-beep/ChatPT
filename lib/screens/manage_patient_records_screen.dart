@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:demo_app/main.dart';
 
 class ManagePatientRecordsScreen extends StatefulWidget {
@@ -457,6 +458,8 @@ class _PatientRecordEditorState extends State<_PatientRecordEditor> {
       'therapyStartDate': _therapyStartDateC.text.trim(),
       'height': _heightC.text.trim(),
       'weight': _weightC.text.trim(),
+      'patientId': userId, // Ensure patientId is set
+      'doctorId': FirebaseAuth.instance.currentUser?.uid, // Add doctorId who made the edit
     };
 
     try {
