@@ -583,7 +583,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           label: const Text('Edit Information'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: themeProvider.primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -608,7 +608,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           label: const Text('Change Password'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: themeProvider.primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -638,7 +638,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           label: const Text('Manage patient exercises'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: themeProvider.primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -664,7 +664,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           label: const Text('Manage patient records'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: themeProvider.primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -694,7 +694,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       label: const Text('View Patients'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: themeProvider.primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -722,7 +722,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       label: const Text('Manage Appointments'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: themeProvider.primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -733,7 +733,6 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       ),
                     ),
                   ),
-                  
                   const SizedBox(height: 12),
                 ],
               ),

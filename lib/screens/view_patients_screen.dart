@@ -589,6 +589,7 @@ class _ViewPatientsScreenState extends State<ViewPatientsScreen> with TickerProv
 
   Widget _buildFilterDropdown(ThemeProvider theme) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
@@ -660,6 +661,7 @@ class _ViewPatientsScreenState extends State<ViewPatientsScreen> with TickerProv
 
   Widget _buildSortDropdown(ThemeProvider theme) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
