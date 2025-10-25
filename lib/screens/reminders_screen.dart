@@ -1538,20 +1538,20 @@ class _RemindersScreenState extends State<RemindersScreen> with TickerProviderSt
                       Expanded(
                         child: ActionButton(
                           onPressed: _markAsComplete,
+                          text: 'Complete',
                           icon: Icons.check_circle_outline,
-                          label: 'Complete',
                           color: Colors.green,
-                          theme: theme,
+                          themeProvider: theme,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ActionButton(
                           onPressed: _snoozeReminders,
+                          text: 'Snooze',
                           icon: Icons.snooze,
-                          label: 'Snooze',
                           color: Colors.orange,
-                          theme: theme,
+                          themeProvider: theme,
                         ),
                       ),
                       const SizedBox(width: 12),
