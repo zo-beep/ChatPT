@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:demo_app/main.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -42,6 +42,17 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
   void _handleError(String error) {
     _onVideoError(error);
   }
+  
+  // Custom Regex to extract YouTube ID accurately across cross-platform formats
+  String? _extractYoutubeId(String url) {
+    final RegExp regExp = RegExp(
+      r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})',
+      caseSensitive: false,
+      multiLine: false,
+    );
+    final match = regExp.firstMatch(url);
+    return match?.group(1);
+  }
 
   Future<void> _validateAndInitializeVideo() async {
     try {
@@ -58,16 +69,16 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
         return;
       }
 
-      // Handle YouTube videos
+      // Handle YouTube videos via iframe (Web/Mobile compatible)
       if (videoUrl.contains('youtube.com') || videoUrl.contains('youtu.be')) {
-        final videoId = YoutubePlayer.convertUrlToId(videoUrl);
+        final videoId = _extractYoutubeId(videoUrl);
         if (videoId != null) {
-          _youtubeController = YoutubePlayerController(
-            initialVideoId: videoId,
-            flags: const YoutubePlayerFlags(
-              autoPlay: false,
-              mute: false,
-              showLiveFullscreenButton: false,
+          _youtubeController = YoutubePlayerController.fromVideoId(
+            videoId: videoId,
+            autoPlay: false,
+            params: const YoutubePlayerParams(
+              showControls: true,
+              showFullscreenButton: false,
             ),
           );
           setState(() {
@@ -82,7 +93,7 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
         return;
       }
 
-      // Handle regular video
+      // Handle regular direct URL video
       try {
         _controller = VideoPlayerController.network(videoUrl);
         await _controller!.initialize();
@@ -104,15 +115,16 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
     }
   }
 
-
-
   void _onVideoError(String error) {
     if (!mounted) return;
     setState(() => _videoError = error);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(error),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.redAccent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -120,14 +132,14 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
   @override
   void dispose() {
     _controller?.dispose();
-    _youtubeController?.dispose();
+    _youtubeController?.close();
     super.dispose();
   }
 
   @override
   void deactivate() {
     if (_isYoutubeVideo) {
-      _youtubeController?.pause();
+      _youtubeController?.pauseVideo();
     } else {
       _controller?.pause();
     }
@@ -165,14 +177,29 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
       final assignmentId = widget.exerciseData?['id'];
       final user = FirebaseAuth.instance.currentUser;
       if (assignmentId != null && user != null) {
-        final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('assignedExercises').doc(assignmentId);
+        final docRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('assignedExercises')
+            .doc(assignmentId);
+            
         await FirebaseFirestore.instance.runTransaction((tx) async {
           final snap = await tx.get(docRef);
           if (!snap.exists) return;
           final data = snap.data() ?? {};
           if ((data['completed'] == true) || (data['completedAt'] != null)) return;
-          tx.update(docRef, {'completed': true, 'completedAt': FieldValue.serverTimestamp()});
-          final histRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('exerciseHistory').doc();
+          
+          tx.update(docRef, {
+            'completed': true,
+            'completedAt': FieldValue.serverTimestamp()
+          });
+          
+          final histRef = FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('exerciseHistory')
+              .doc();
+              
           tx.set(histRef, {
             'assignmentId': assignmentId,
             'exerciseId': data['exerciseId'],
@@ -187,11 +214,15 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
           });
         });
       }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Exercise marked as complete!'),
-            backgroundColor: Colors.green,
+            content: const Text('Exercise marked as complete!'),
+            backgroundColor: Colors.green.shade600,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
           ),
         );
       }
@@ -203,7 +234,10 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to mark complete: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.redAccent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
           ),
         );
       }
@@ -213,171 +247,264 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = widget.themeProvider;
+    final primaryColor = theme?.primaryColor ?? const Color(0xFF5B8EFF);
+    final bgColor = theme?.backgroundColor ?? Colors.white;
+    final textColor = theme?.textColor ?? const Color(0xFF1E293B);
+
     return Scaffold(
-      backgroundColor: theme?.backgroundColor ?? const Color(0xFFF5F6FA),
-      appBar: AppBar(
-        backgroundColor: theme?.cardColor ?? Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme?.primaryColor ?? const Color(0xFF5B8EFF)),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: Text(
-          'Back',
-          style: TextStyle(color: theme?.primaryColor ?? const Color(0xFF5B8EFF)),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                decoration: BoxDecoration(
-                  color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Center(
-                  child: Text(
-                    widget.exerciseName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final double width = constraints.maxWidth;
-                  // Reduce video height to make room for instructions
-                  final double height = width > 0 ? (width * 0.4) : 150.0;
-                  return Container(
-                    height: height,
-                    decoration: BoxDecoration(
-                      color: theme?.secondaryColor ?? Colors.grey[200],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: _buildVideoPlayer(width, height, theme),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: theme?.cardColor ?? Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
+      backgroundColor: primaryColor,
+      body: Column(
+        children: [
+          // ─── Header Section ───────────────────────────────────────────────
+          SafeArea(
+            bottom: false,
+            child: SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Instructions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: theme?.textColor ?? Colors.black87,
+                    // Modern Back Button
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    ...widget.instructions.map((instruction) => _buildInstruction(instruction, theme)),
+                    const SizedBox(height: 24),
+                    // Exercise Title
+                    Text(
+                      widget.exerciseName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Video Guide & Instructions',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.85),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              if (widget.canComplete) ...[
-                ElevatedButton(
-                  onPressed: _markAsComplete,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Mark as complete',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+            ),
+          ),
+
+          // ─── Content Section (Bottom Sheet Style) ─────────────────────────
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(36),
+                  topRight: Radius.circular(36),
                 ),
-                const SizedBox(height: 12),
-              ],
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
                   ),
-                  side: BorderSide(
-                    color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                    width: 1.5,
-                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(36),
+                  topRight: Radius.circular(36),
                 ),
-                child: Text(
-                  widget.canComplete ? 'Next Exercise' : 'Close',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Video Player Container
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 15,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: AspectRatio(
+                            aspectRatio: 16 / 9,
+                            child: _buildVideoPlayer(theme),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Instructions Title
+                      Text(
+                        'Step-by-Step Instructions',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Instructions List
+                      ...widget.instructions.asMap().entries.map((entry) {
+                        return _buildInstructionStep(entry.value, entry.key + 1, theme);
+                      }),
+                      const SizedBox(height: 40),
+
+                      // Action Buttons
+                      if (widget.canComplete) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _markAsComplete,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              elevation: 2,
+                              shadowColor: primaryColor.withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              'Mark as Complete',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            side: BorderSide(color: primaryColor, width: 2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text(
+                            widget.canComplete ? 'Close Video' : 'Go Back',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24), // Extra bottom padding for safe area
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildInstruction(String text, ThemeProvider? theme) {
+  Widget _buildInstructionStep(String text, int stepNumber, ThemeProvider? theme) {
+    final primaryColor = theme?.primaryColor ?? const Color(0xFF5B8EFF);
+    final textColor = theme?.textColor ?? const Color(0xFF1E293B);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 14,
-          color: theme?.subtextColor ?? Colors.grey[700],
-          height: 1.5,
-        ),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '$stepNumber',
+                style: TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: textColor.withOpacity(0.85),
+                  height: 1.5,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildVideoPlayer(double width, double height, ThemeProvider? theme) {
+  Widget _buildVideoPlayer(ThemeProvider? theme) {
+    final primaryColor = theme?.primaryColor ?? const Color(0xFF5B8EFF);
+    
     // Show error state if there's an error
     if (_videoError != null) {
-      return Center(
+      return Container(
+        color: Colors.grey.shade100,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: theme?.subtextColor ?? Colors.grey,
-            ),
+            Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 16),
-            Text(
-              _videoError!,
-              style: TextStyle(
-                color: theme?.subtextColor ?? Colors.grey,
-                fontSize: 16,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _videoError!,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -386,90 +513,85 @@ class _VideoGuideScreenState extends State<VideoGuideScreen> {
 
     // Show loading state while video is initializing
     if (!_isInitialized) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
+      return Container(
+        color: Colors.grey.shade100,
+        child: Center(
+          child: CircularProgressIndicator(color: primaryColor),
         ),
       );
     }
 
     // Show YouTube player if it's a YouTube video
     if (_isYoutubeVideo && _youtubeController != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: YoutubePlayer(
-          controller: _youtubeController!,
-          showVideoProgressIndicator: true,
-          progressIndicatorColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-          progressColors: ProgressBarColors(
-            playedColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-            handleColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-          ),
-        ),
+      return YoutubePlayer(
+        controller: _youtubeController!,
       );
     }
 
     // Show video player for local or direct URL videos
     if (_controller != null && _controller!.value.isInitialized) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          children: [
-            SizedBox.expand(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: width,
-                  height: height,
-                  child: VideoPlayer(_controller!),
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _controller!.value.size.width,
+                height: _controller!.value.size.height,
+                child: VideoPlayer(_controller!),
+              ),
+            ),
+          ),
+          // Play/Pause Overlay
+          GestureDetector(
+            onTap: _togglePlayPause,
+            child: AnimatedOpacity(
+              opacity: _isPlaying ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  size: 40,
+                  color: Colors.white,
                 ),
               ),
             ),
-            Center(
+          ),
+          // Invisible full-screen tap target to pause while playing
+          if (_isPlaying)
+            Positioned.fill(
               child: GestureDetector(
                 onTap: _togglePlayPause,
-                child: Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 40,
-                    color: Colors.white,
-                  ),
-                ),
+                child: Container(color: Colors.transparent),
               ),
             ),
-          ],
-        ),
+        ],
       );
     }
 
     // Fallback for no video
-    return Center(
+    return Container(
+      color: Colors.grey.shade100,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.video_library_outlined,
-            size: 48,
-            color: theme?.subtextColor ?? Colors.grey,
-          ),
+          Icon(Icons.video_library_outlined, size: 48, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
             'No video available',
-            style: TextStyle(
-              color: theme?.subtextColor ?? Colors.grey,
-              fontSize: 16,
-            ),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
             textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
-
 }

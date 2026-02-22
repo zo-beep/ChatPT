@@ -43,7 +43,7 @@ dependencies:
   google_generative_ai: ^0.2.0  # Add Gemini AI support
   flutter_markdown: ^0.7.7+1
   url_launcher: ^6.2.4  # For launching URLs
-  youtube_player_flutter: ^9.1.3
+  youtube_player_iframe: 5.2.2
   printing: ^5.14.2
 
 dev_dependencies:

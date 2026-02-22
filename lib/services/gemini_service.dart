@@ -1,7 +1,7 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 class GeminiService {
-  static const String _apiKey = 'AIzaSyDmloeGDIUSz7LH0QVr9kYtLFe7Lf3kXaQ'; // Replace with your Gemini API key
+  static const String _apiKey = 'AIzaSyC6RPdr_zu6kmuKIm1mUlYjaDIY1UaLm44'; // Replace with your Gemini API key
   late final GenerativeModel _model;
   
   // System prompt to constrain responses to physical therapy topics

@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:demo_app/main.dart';
@@ -28,9 +28,58 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
 
+  // Character counts
+  int _emailCharCount = 0;
+  int _passwordCharCount = 0;
+
+  static const int _maxFieldLength = 100;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedCredentials();
+
+    _emailController.addListener(() {
+      setState(() {
+        _emailCharCount = _emailController.text.length;
+        if (_emailErrorText != null) _emailErrorText = null;
+        // Show inline error if over limit
+        if (_emailCharCount > _maxFieldLength) {
+          _emailErrorText = 'Input is too long (max $_maxFieldLength characters)';
+        }
+      });
+    });
+
+    _passwordController.addListener(() {
+      setState(() {
+        _passwordCharCount = _passwordController.text.length;
+        if (_passwordErrorText != null) _passwordErrorText = null;
+        if (_passwordCharCount > _maxFieldLength) {
+          _passwordErrorText = 'Input is too long (max $_maxFieldLength characters)';
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  // ─── Validators ───────────────────────────────────────────────────────────
+
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'Email is required';
+    }
+    if (value.length > _maxFieldLength) {
+      return 'Input is too long (max $_maxFieldLength characters)';
+    }
+    // Reject if email contains whitespace anywhere
+    if (value.contains(' ')) {
+      return 'Email must not contain spaces';
     }
     if (!value.contains('@')) {
       return 'Invalid email';
@@ -46,69 +95,103 @@ class _LoginScreenState extends State<LoginScreen> {
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }
+    if (value.length > _maxFieldLength) {
+      return 'Input is too long (max $_maxFieldLength characters)';
+    }
+    // Reject passwords that contain whitespace (leading, trailing, or internal)
+    if (value.contains(' ') || value.contains('\t') || value.contains('\n')) {
+      return 'Password must not contain spaces or whitespace';
+    }
     if (value.length < 6) {
       return 'Password must be at least 6 characters';
     }
     return null;
   }
 
-  
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
+  /// Returns a counter widget that turns red when approaching or at the limit.
+  Widget _buildCharCounter(int count) {
+    final bool atLimit = count >= _maxFieldLength;
+    final bool nearLimit = count >= (_maxFieldLength * 0.85).round();
+    final color = atLimit
+        ? Colors.red
+        : nearLimit
+            ? Colors.orange
+            : Colors.grey;
+
+    return Text(
+      '$count/$_maxFieldLength',
+      style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
+    );
+  }
+
+  // ─── Login handler ────────────────────────────────────────────────────────
+
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) {
+    // Clear any server-side errors before re-validating
+    setState(() {
+      _emailErrorText = null;
+      _passwordErrorText = null;
+    });
+
+    if (!_formKey.currentState!.validate()) return;
+
+    // Extra guard: reject if over limit (shouldn't reach here due to inputFormatters,
+    // but kept as a safety net)
+    if (_emailController.text.length > _maxFieldLength ||
+        _passwordController.text.length > _maxFieldLength) {
+      _showErrorSnackBar(
+          'One or more fields exceed the maximum length of $_maxFieldLength characters.');
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
+      // Trim email only — do NOT trim password (whitespace in password is now invalid)
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        password: _passwordController.text, // intentionally NOT trimmed
       );
 
       if (credential.user != null) {
-        // Handle remember me functionality
         if (_rememberMe) {
           await UserService.saveRememberMeCredentials(
             _emailController.text.trim(),
-            _passwordController.text.trim(),
+            _passwordController.text,
           );
         } else {
           await UserService.clearRememberMeCredentials();
         }
 
-        // Set user email in UserService
         await UserService.setUserEmail(_emailController.text.trim());
 
-        // Try to fetch role from Firestore
         try {
-          final docRef = FirebaseFirestore.instance.collection('users').doc(credential.user!.uid);
+          final docRef = FirebaseFirestore.instance
+              .collection('users')
+              .doc(credential.user!.uid);
           final doc = await docRef.get();
 
-          // If a Firestore profile exists, merge it into UserService so UI shows real values
           if (doc.exists) {
             final data = doc.data() as Map<String, dynamic>;
             final role = (data['role']?.toString() ?? '').trim();
-            // Normalize role
             final normalizedRole = role.isEmpty ? 'patient' : role;
 
-            // Update local cache/service with available fields
             await UserService.updateUserProfile({
               'name': data['name'] ?? _emailController.text.trim(),
               'email': data['email'] ?? _emailController.text.trim(),
@@ -121,81 +204,79 @@ class _LoginScreenState extends State<LoginScreen> {
 
             await UserService.setUserRole(normalizedRole);
 
-            if (mounted) {
-            // All roles now navigate to main screen after login
-            Navigator.pushReplacementNamed(context, '/main');
-            }
+            if (mounted) Navigator.pushReplacementNamed(context, '/main');
           } else {
-            // No Firestore doc; ensure role saved and proceed
             await UserService.setUserRole('patient');
             if (mounted) Navigator.pushReplacementNamed(context, '/main');
           }
         } catch (e) {
-          // Fallback to main screen if Firestore read fails
           print('Failed to read Firestore user doc at login: $e');
           await UserService.setUserRole('patient');
           if (mounted) Navigator.pushReplacementNamed(context, '/main');
         }
       }
     } on FirebaseAuthException catch (e) {
-      // Normalize code and message to be more forgiving across platforms
-  final code = e.code.toString().toLowerCase();
-  final message = (e.message ?? '').toString().toLowerCase();
+      final code = e.code.toString().toLowerCase();
+      final message = (e.message ?? '').toString().toLowerCase();
 
       bool handled = false;
 
-      // user-not-found variants
-      if (code.contains('user-not-found') || code.contains('user_not_found') || code.contains('no-such-user') ||
-          message.contains('no user') || message.contains('user not found') || message.contains('no user record')) {
-        setState(() {
-          _emailErrorText = 'No account is registered with this email.';
-        });
+      if (code.contains('user-not-found') ||
+          code.contains('user_not_found') ||
+          code.contains('no-such-user') ||
+          message.contains('no user') ||
+          message.contains('user not found') ||
+          message.contains('no user record')) {
+        setState(() => _emailErrorText = 'No account is registered with this email.');
         handled = true;
       }
 
-      // wrong-password variants
-      if (!handled && (code.contains('wrong-password') || code.contains('wrong_password') || message.contains('wrong password') || message.contains('invalid password'))) {
-        setState(() {
-          _passwordErrorText = 'Incorrect password.';
-        });
+      if (!handled &&
+          (code.contains('wrong-password') ||
+              code.contains('wrong_password') ||
+              message.contains('wrong password') ||
+              message.contains('invalid password'))) {
+        setState(() => _passwordErrorText = 'Incorrect password.');
         handled = true;
       }
 
-      // invalid-credential (e.g. "the supplied auth credential is incorrect or has expired")
-      if (!handled && (code.contains('invalid-credential') || code.contains('invalid_credential') || message.contains('supplied auth credential is incorrect') || message.contains('has expired') || message.contains('invalid credential'))) {
-        setState(() {
-          _passwordErrorText = 'Incorrect credentials or expired token. Try again or reset your password.';
-        });
+      if (!handled &&
+          (code.contains('invalid-credential') ||
+              code.contains('invalid_credential') ||
+              message.contains('supplied auth credential is incorrect') ||
+              message.contains('has expired') ||
+              message.contains('invalid credential'))) {
+        setState(() => _passwordErrorText =
+            'Incorrect credentials or expired token. Try again or reset your password.');
         handled = true;
       }
 
-      // invalid-email
-      if (!handled && (code.contains('invalid-email') || code.contains('invalid_email') || message.contains('invalid email'))) {
-        setState(() {
-          _emailErrorText = 'The email address is not valid.';
-        });
+      if (!handled &&
+          (code.contains('invalid-email') ||
+              code.contains('invalid_email') ||
+              message.contains('invalid email'))) {
+        setState(() => _emailErrorText = 'The email address is not valid.');
         handled = true;
       }
 
-      // Other known account-level errors
       if (!handled) {
         if (code.contains('user-disabled') || message.contains('disabled')) {
           _showErrorSnackBar('This user account has been disabled.');
           handled = true;
-        } else if (code.contains('too-many-requests') || message.contains('too many requests')) {
+        } else if (code.contains('too-many-requests') ||
+            message.contains('too many requests')) {
           _showErrorSnackBar('Too many failed attempts. Please try again later.');
           handled = true;
-        } else if (code.contains('operation-not-allowed') || message.contains('operation not allowed')) {
+        } else if (code.contains('operation-not-allowed') ||
+            message.contains('operation not allowed')) {
           _showErrorSnackBar('Email/password accounts are not enabled.');
           handled = true;
         }
       }
 
       if (!handled) {
-        // In debug builds show raw code/message to help tune matching
         if (kDebugMode) {
-          final raw = 'code=${e.code} message=${e.message ?? 'null'}';
-          _showErrorSnackBar('Auth error: $raw');
+          _showErrorSnackBar('Auth error: code=${e.code} message=${e.message ?? 'null'}');
         } else {
           _showErrorSnackBar('An error occurred during login. Please try again.');
         }
@@ -203,13 +284,11 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       _showErrorSnackBar('An unexpected error occurred. Please try again.');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // ─── Forgot password ──────────────────────────────────────────────────────
 
   Future<void> _handleForgotPassword() async {
     if (_emailController.text.trim().isEmpty) {
@@ -217,29 +296,26 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text.trim())) {
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+        .hasMatch(_emailController.text.trim())) {
       _showErrorSnackBar('Please enter a valid email address.');
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: _emailController.text.trim(),
-      );
-      
+      await FirebaseAuth.instance
+          .sendPasswordResetEmail(email: _emailController.text.trim());
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Password reset email sent to ${_emailController.text.trim()}'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
           ),
         );
       }
@@ -262,308 +338,30 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       _showErrorSnackBar('An unexpected error occurred. Please try again.');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = widget.themeProvider;
-    return Scaffold(
-      body: Container(
-        color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Icon(
-                          Icons.directions_run,
-                          size: 35,
-                          color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'ChatPT',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 60),
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: theme?.cardColor ?? Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Email',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: theme?.textColor ?? Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: _validateEmail,
-                            decoration: InputDecoration(
-                              hintText: 'sample@email.com',
-                              hintStyle: TextStyle(color: Colors.grey[400]),
-                              filled: true,
-                              fillColor: theme?.backgroundColor ?? Colors.grey[50],
-                              errorText: _emailErrorText,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.red, width: 1),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Password',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: theme?.textColor ?? Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            validator: _validatePassword,
-                            decoration: InputDecoration(
-                              hintText: 'Password',
-                              hintStyle: TextStyle(color: Colors.grey[400]),
-                              filled: true,
-                              fillColor: theme?.backgroundColor ?? Colors.grey[50],
-                              errorText: _passwordErrorText,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.red, width: 1),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.red, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: Colors.grey[600],
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Remember Me Checkbox
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: _rememberMe,
-                                onChanged: _isLoading ? null : (value) {
-                                  setState(() {
-                                    _rememberMe = value ?? false;
-                                  });
-                                },
-                                activeColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Remember me',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: theme?.textColor ?? Colors.black87,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Forgot Password Link
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _isLoading ? null : _handleForgotPassword,
-                              child: Text(
-                                'Forgot Password?',
-                                style: TextStyle(
-                                  color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme?.cardColor ?? Colors.white,
-                                foregroundColor: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                                disabledBackgroundColor: Colors.grey[300],
-                                disabledForegroundColor: Colors.grey[500],
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(
-                                    color: theme?.primaryColor ?? const Color(0xFF5B8EFF),
-                                    width: 1,
-                                  ),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Login',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRememberedCredentials();
-    _emailController.addListener(() {
-      if (_emailErrorText != null) {
-        setState(() {
-          _emailErrorText = null;
-        });
-      }
-    });
-    _passwordController.addListener(() {
-      if (_passwordErrorText != null) {
-        setState(() {
-          _passwordErrorText = null;
-        });
-      }
-    });
-  }
+  // ─── Remember me ──────────────────────────────────────────────────────────
 
   Future<void> _loadRememberedCredentials() async {
     try {
-      // First try to load from SharedPreferences (fallback)
       final prefs = await SharedPreferences.getInstance();
       final rememberedEmail = prefs.getString('remembered_email');
       final rememberedPassword = prefs.getString('remembered_password');
       final rememberMeEnabled = prefs.getBool('remember_me') ?? false;
-      
-      if (rememberMeEnabled && rememberedEmail != null && rememberedPassword != null) {
+
+      if (rememberMeEnabled &&
+          rememberedEmail != null &&
+          rememberedPassword != null) {
         setState(() {
           _emailController.text = rememberedEmail;
           _passwordController.text = rememberedPassword;
+          _emailCharCount = rememberedEmail.length;
+          _passwordCharCount = rememberedPassword.length;
           _rememberMe = true;
         });
-        print('Loaded remembered credentials from SharedPreferences');
       } else {
-        // Try to load from Firestore if user is already authenticated
         final isRememberMeEnabled = await UserService.isRememberMeEnabled();
         if (isRememberMeEnabled) {
           final credentials = await UserService.getRememberedCredentials();
@@ -571,14 +369,348 @@ class _LoginScreenState extends State<LoginScreen> {
             setState(() {
               _emailController.text = credentials['email']!;
               _passwordController.text = credentials['password']!;
+              _emailCharCount = credentials['email']!.length;
+              _passwordCharCount = credentials['password']!.length;
               _rememberMe = true;
             });
-            print('Loaded remembered credentials from Firestore');
           }
         }
       }
     } catch (e) {
       print('Error loading remembered credentials: $e');
     }
+  }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.themeProvider;
+    final primaryColor = theme?.primaryColor ?? const Color(0xFF5B8EFF);
+    final bgColor = theme?.backgroundColor ?? Colors.white;
+    final textColor = theme?.textColor ?? const Color(0xFF1E293B);
+    final inputFillColor = Colors.grey.withOpacity(0.08);
+
+    return Scaffold(
+      backgroundColor: primaryColor,
+      body: Column(
+        children: [
+          // ─── Header Section ───────────────────────────────────────────────
+          SafeArea(
+            bottom: false,
+            child: SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Modern Back Button
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.arrow_back_ios_new,
+                              color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Logo & Greetings
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.directions_run,
+                        size: 38,
+                        color: primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Welcome Back',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sign in to your ChatPT account',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.85),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ─── Form Section (Bottom Sheet Style) ─────────────────────────────
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(36),
+                  topRight: Radius.circular(36),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(36),
+                  topRight: Radius.circular(36),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(32),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Email ──────────────────────────────────────
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Email Address',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            _buildCharCounter(_emailCharCount),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: _validateEmail,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                            LengthLimitingTextInputFormatter(_maxFieldLength),
+                          ],
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[500]),
+                            hintText: 'sample@email.com',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            filled: true,
+                            fillColor: inputFillColor,
+                            errorText: _emailErrorText,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: primaryColor, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── Password ───────────────────────────────────
+                        Text(
+                          'Password',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          validator: _validatePassword,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                            LengthLimitingTextInputFormatter(_maxFieldLength),
+                          ],
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[500]),
+                            hintText: 'Enter your password',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            filled: true,
+                            fillColor: inputFillColor,
+                            errorText: _passwordErrorText,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: primaryColor, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                color: Colors.grey[500],
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ── Controls Row (Remember Me & Forgot Pass) ───
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Checkbox(
+                                    value: _rememberMe,
+                                    onChanged: _isLoading
+                                        ? null
+                                        : (value) {
+                                            setState(() {
+                                              _rememberMe = value ?? false;
+                                            });
+                                          },
+                                    activeColor: primaryColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    side: BorderSide(color: Colors.grey[400]!),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Remember me',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: textColor.withOpacity(0.8),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            TextButton(
+                              onPressed: _isLoading ? null : _handleForgotPassword,
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Forgot Password?',
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // ── Login Button ───────────────────────────────
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _handleLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: Colors.grey[300],
+                              disabledForegroundColor: Colors.grey[500],
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              elevation: 2,
+                              shadowColor: primaryColor.withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text(
+                                    'Sign In',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
