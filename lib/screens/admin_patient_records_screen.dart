@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:demo_app/main.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
 class AdminPatientRecordsScreen extends StatefulWidget {
@@ -223,36 +224,277 @@ class _AdminPatientRecordsScreenState extends State<AdminPatientRecordsScreen> {
   }
 
   Future<void> _printPatientRecord(Map<String, dynamic> p) async {
-    final pdf = pw.Document();
-    pdf.addPage(
-      pw.Page(
-        build: (context) => pw.Padding(
-          padding: const pw.EdgeInsets.all(20),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text('Patient Record',
-                  style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 20),
-              pw.Text('Name: ${p['name'] ?? '—'}'),
-              pw.Text('Email: ${p['email'] ?? '—'}'),
-              pw.Text('Contact: ${p['contactNumber'] ?? '—'}'),
-              pw.Text('Age: ${p['age']?.toString() ?? '—'}'),
-              pw.Text('Gender: ${p['gender'] ?? '—'}'),
-              pw.Text('Diagnosis: ${p['diagnosis'] ?? '—'}'),
-              pw.Text('Medications: ${p['medications'] ?? '—'}'),
-              pw.Text('Assigned Doctor: ${p['assignedDoctor'] ?? '—'}'),
-              pw.SizedBox(height: 30),
-              pw.Text('Generated on: ${DateTime.now()}',
-                  style: const pw.TextStyle(fontSize: 10)),
-            ],
-          ),
-        ),
-      ),
-    );
+  final pdf = pw.Document();
 
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
-  }
+  final regular = await PdfGoogleFonts.nunitoRegular();
+  final bold = await PdfGoogleFonts.nunitoBold();
+  final light = await PdfGoogleFonts.nunitoLight();
+
+  const primaryColor = PdfColor.fromInt(0xFF4E80FF);
+  const accentColor = PdfColor.fromInt(0xFF90CAF9);
+  const darkGrey = PdfColor.fromInt(0xFF37474F);
+  const lightGrey = PdfColor.fromInt(0xFFF5F5F5);
+  const white = PdfColors.white;
+
+  String formatField(dynamic val) =>
+      (val != null && val.toString().isNotEmpty) ? val.toString() : '-';
+
+  final fields = [
+    {'label': 'Full Name',       'value': formatField(p['name'])},
+    {'label': 'Email Address',   'value': formatField(p['email'])},
+    {'label': 'Contact Number',  'value': formatField(p['contactNumber'])},
+    {'label': 'Age',             'value': formatField(p['age'])},
+    {'label': 'Gender',          'value': formatField(p['gender'])},
+    {'label': 'Diagnosis',       'value': formatField(p['diagnosis'])},
+    {'label': 'Medications',     'value': formatField(p['medications'])},
+    {'label': 'Assigned Doctor', 'value': formatField(p['assignedDoctor'])},
+  ];
+
+  pdf.addPage(
+    pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(0),
+      build: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+
+          // ── Header Banner ───────────────────────────────────────
+          pw.Container(
+            color: primaryColor,
+            padding: const pw.EdgeInsets.fromLTRB(32, 24, 32, 0),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Top row: Logo left, CONFIDENTIAL badge right
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    // ChatPT Logo block
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Container(
+                          width: 42,
+                          height: 42,
+                          decoration: pw.BoxDecoration(
+                            color: white,
+                            borderRadius: pw.BorderRadius.circular(10),
+                          ),
+                          alignment: pw.Alignment.center,
+                          child: pw.Text(
+                            'PT',
+                            style: pw.TextStyle(
+                              font: bold,
+                              fontSize: 16,
+                              fontWeight: pw.FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ),
+                        pw.SizedBox(width: 10),
+                        pw.Text(
+                          'ChatPT',
+                          style: pw.TextStyle(
+                            font: bold,
+                            fontSize: 24,
+                            fontWeight: pw.FontWeight.bold,
+                            color: white,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // CONFIDENTIAL badge
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: pw.BoxDecoration(
+                        color: white,
+                        borderRadius: pw.BorderRadius.circular(4),
+                        border: pw.Border.all(
+                          color: PdfColor.fromInt(0x66FFFFFF),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: pw.Text(
+                        'CONFIDENTIAL',
+                        style: pw.TextStyle(
+                          font: bold,
+                          fontSize: 8,
+                          color: primaryColor,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                pw.SizedBox(height: 20),
+
+                // Divider
+                pw.Container(height: 0.8, color: PdfColor.fromInt(0x66FFFFFF)),
+                pw.SizedBox(height: 14),
+
+                // Patient label + name + UID
+                pw.Text(
+                  'PATIENT RECORD',
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 9,
+                    color: accentColor,
+                    letterSpacing: 2,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  formatField(p['name']),
+                  style: pw.TextStyle(
+                    font: bold,
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: white,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  'UID: ${formatField(p['uid'])}',
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColor.fromInt(0xB3FFFFFF),
+                  ),
+                ),
+                pw.SizedBox(height: 20),
+              ],
+            ),
+          ),
+
+          // ── Accent strip ───────────────────────────────────────
+          pw.Container(
+            height: 4,
+            color: accentColor,
+          ),
+
+          // ── Body ───────────────────────────────────────────────
+          pw.Expanded(
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Section label with left bar accent
+                  pw.Row(
+                    children: [
+                      pw.Container(width: 4, height: 16, color: primaryColor),
+                      pw.SizedBox(width: 8),
+                      pw.Text(
+                        'Patient Information',
+                        style: pw.TextStyle(
+                          font: bold,
+                          fontSize: 13,
+                          fontWeight: pw.FontWeight.bold,
+                          color: darkGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+
+                  // ── Info Table ────────────────────────────────
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+                    columnWidths: {
+                      0: const pw.FlexColumnWidth(1.3),
+                      1: const pw.FlexColumnWidth(2.5),
+                    },
+                    children: fields.asMap().entries.map((entry) {
+                      final isEven = entry.key.isEven;
+                      final field = entry.value;
+                      return pw.TableRow(
+                        decoration: pw.BoxDecoration(
+                          color: isEven ? lightGrey : PdfColors.white,
+                        ),
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 9),
+                            child: pw.Text(
+                              field['label']!,
+                              style: pw.TextStyle(
+                                font: bold,
+                                fontSize: 10,
+                                fontWeight: pw.FontWeight.bold,
+                                color: darkGrey,
+                              ),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 9),
+                            child: pw.Text(
+                              field['value']!,
+                              style: pw.TextStyle(
+                                font: regular,
+                                fontSize: 10,
+                                color: PdfColors.black,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Footer ─────────────────────────────────────────────
+          pw.Container(
+            color: darkGrey,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Row(
+                  children: [
+                    pw.Text(
+                      'ChatPT',
+                      style: pw.TextStyle(
+                        font: bold,
+                        fontSize: 9,
+                        color: accentColor,
+                      ),
+                    ),
+                    pw.Text(
+                      '  |  For authorized personnel only',
+                      style: pw.TextStyle(
+                        font: light,
+                        fontSize: 8,
+                        color: PdfColor.fromInt(0xB3FFFFFF),
+                      ),
+                    ),
+                  ],
+                ),
+                pw.Text(
+                  'Generated: ${DateTime.now().toString().substring(0, 16)}',
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColor.fromInt(0xB3FFFFFF),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+}
 
   Widget _detailRow(String label, String value, ThemeProvider theme) {
     return Padding(
